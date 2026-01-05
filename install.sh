@@ -1177,14 +1177,35 @@ if $INSTALL_RKHUNTER; then
   section "rkhunter (détection rootkits)"
   apt-get install -y rkhunter | tee -a "$LOG_FILE"
 
-  # Configuration
+  # Configuration /etc/default/rkhunter
   backup_file /etc/rkhunter.conf
   sed -i 's/^CRON_DAILY_RUN=.*/CRON_DAILY_RUN="true"/' /etc/default/rkhunter
-  sed -i 's/^CRON_DB_UPDATE=.*/CRON_DB_UPDATE="true"/' /etc/default/rkhunter
+  sed -i 's/^CRON_DB_UPDATE=.*/CRON_DB_UPDATE="false"/' /etc/default/rkhunter
   sed -i 's/^APT_AUTOGEN=.*/APT_AUTOGEN="true"/' /etc/default/rkhunter
 
-  # Mise à jour des propriétés et base de données
-  rkhunter --update || true
+  # Configuration /etc/rkhunter.conf - désactiver les miroirs web (souvent down)
+  # et utiliser les mises à jour via apt (plus fiable)
+  sed -i 's/^UPDATE_MIRRORS=.*/UPDATE_MIRRORS=0/' /etc/rkhunter.conf
+  sed -i 's/^MIRRORS_MODE=.*/MIRRORS_MODE=0/' /etc/rkhunter.conf
+  sed -i 's/^WEB_CMD=.*/WEB_CMD=""/' /etc/rkhunter.conf
+  # Autoriser les scripts dans /dev (systemd)
+  sed -i 's/^ALLOWDEVFILE=.*/ALLOWDEVFILE=\/dev\/.udev\/rules.d\/root.rules/' /etc/rkhunter.conf
+  # Réduire les faux positifs sur Debian
+  if ! grep -q "SCRIPTWHITELIST=/usr/bin/egrep" /etc/rkhunter.conf; then
+    cat >> /etc/rkhunter.conf <<'RKHCONF'
+
+# Whitelist pour Debian (éviter faux positifs)
+SCRIPTWHITELIST=/usr/bin/egrep
+SCRIPTWHITELIST=/usr/bin/fgrep
+SCRIPTWHITELIST=/usr/bin/which
+SCRIPTWHITELIST=/usr/bin/ldd
+ALLOWHIDDENDIR=/etc/.java
+ALLOWHIDDENFILE=/etc/.gitignore
+ALLOWHIDDENFILE=/etc/.mailname
+RKHCONF
+  fi
+
+  # Mise à jour des propriétés (baseline du système)
   rkhunter --propupd
 
   # Script de scan avec rapport email
