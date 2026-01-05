@@ -150,6 +150,7 @@ EOF
 # ---------------------------------- Arguments -----------------------------------------
 NONINTERACTIVE=false
 AUDIT_MODE=false
+PIPED_MODE=false
 for arg in "$@"; do
   case "$arg" in
     --noninteractive) NONINTERACTIVE=true ;;
@@ -158,6 +159,29 @@ for arg in "$@"; do
     *) err "Option inconnue: $arg"; show_help; exit 1 ;;
   esac
 done
+
+# Détection exécution via pipe (curl | bash)
+if [[ ! -t 0 ]]; then
+  PIPED_MODE=true
+  if [[ ! -f "/root/.bootstrap.conf" ]]; then
+    echo ""
+    echo -e "${RED}[✗] Erreur : Exécution via pipe détectée sans configuration existante.${RESET}"
+    echo ""
+    echo "Le mode interactif ne fonctionne pas via 'curl | bash'."
+    echo ""
+    echo "Solutions :"
+    echo "  1. Téléchargez d'abord le script :"
+    echo "     wget https://raw.githubusercontent.com/yrbane/debian13-web-server/main/install.sh"
+    echo "     chmod +x install.sh && sudo ./install.sh"
+    echo ""
+    echo "  2. Ou si vous avez déjà une config, relancez la commande."
+    echo ""
+    exit 1
+  fi
+  # Config existante : forcer le mode non-interactif
+  note "Exécution via pipe détectée - utilisation de la configuration existante."
+  NONINTERACTIVE=true
+fi
 
 # ---------------------------------- Prérequis -----------------------------------------
 require_root() { [[ $EUID -eq 0 ]] || die "Exécute ce script en root (sudo)."; }
@@ -428,38 +452,56 @@ elif ! $NONINTERACTIVE; then
     ask_all_questions
   fi
 else
-  HOSTNAME_FQDN="$HOSTNAME_FQDN_DEFAULT"
-  SSH_PORT="$SSH_PORT_DEFAULT"
-  ADMIN_USER="$ADMIN_USER_DEFAULT"
-  DKIM_SELECTOR="$DKIM_SELECTOR_DEFAULT"
-  DKIM_DOMAIN="$DKIM_DOMAIN_DEFAULT"
-  EMAIL_FOR_CERTBOT="$EMAIL_FOR_CERTBOT_DEFAULT"
-  TIMEZONE="$TIMEZONE_DEFAULT"
-  INSTALL_LOCALES=true
-  INSTALL_SSH_HARDEN=true
-  INSTALL_UFW=true
-  INSTALL_FAIL2BAN=true
-  INSTALL_APACHE_PHP=true
-  PHP_DISABLE_FUNCTIONS=true
-  INSTALL_MARIADB=true
-  INSTALL_PHPMYADMIN=true
-  INSTALL_POSTFIX_DKIM=true
-  INSTALL_CERTBOT=true
-  INSTALL_DEVTOOLS=true
-  INSTALL_NODE=true
-  INSTALL_RUST=true
-  INSTALL_PYTHON3=true
-  INSTALL_COMPOSER=true
-  INSTALL_SHELL_FUN=true
-  INSTALL_YTDL=false
-  INSTALL_CLAMAV=true
-  INSTALL_RKHUNTER=true
-  INSTALL_LOGWATCH=true
-  INSTALL_SSH_ALERT=true
-  INSTALL_AIDE=true
-  INSTALL_MODSEC_CRS=true
-  SECURE_TMP=true
-  INSTALL_BASHRC_GLOBAL=true
+  # Mode non-interactif
+  if $PIPED_MODE && [[ -f "$CONFIG_FILE" ]]; then
+    # Mode pipe avec config existante : charger la config + defaults pour nouvelles options
+    load_config
+    INSTALL_PYTHON3=${INSTALL_PYTHON3:-true}
+    INSTALL_RKHUNTER=${INSTALL_RKHUNTER:-true}
+    INSTALL_LOGWATCH=${INSTALL_LOGWATCH:-true}
+    INSTALL_SSH_ALERT=${INSTALL_SSH_ALERT:-true}
+    INSTALL_AIDE=${INSTALL_AIDE:-true}
+    INSTALL_MODSEC_CRS=${INSTALL_MODSEC_CRS:-true}
+    SECURE_TMP=${SECURE_TMP:-true}
+    INSTALL_BASHRC_GLOBAL=${INSTALL_BASHRC_GLOBAL:-true}
+    PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
+    section "Configuration existante chargée (mode pipe)"
+    show_config
+  else
+    # Mode non-interactif classique : utiliser les valeurs par défaut
+    HOSTNAME_FQDN="$HOSTNAME_FQDN_DEFAULT"
+    SSH_PORT="$SSH_PORT_DEFAULT"
+    ADMIN_USER="$ADMIN_USER_DEFAULT"
+    DKIM_SELECTOR="$DKIM_SELECTOR_DEFAULT"
+    DKIM_DOMAIN="$DKIM_DOMAIN_DEFAULT"
+    EMAIL_FOR_CERTBOT="$EMAIL_FOR_CERTBOT_DEFAULT"
+    TIMEZONE="$TIMEZONE_DEFAULT"
+    INSTALL_LOCALES=true
+    INSTALL_SSH_HARDEN=true
+    INSTALL_UFW=true
+    INSTALL_FAIL2BAN=true
+    INSTALL_APACHE_PHP=true
+    PHP_DISABLE_FUNCTIONS=true
+    INSTALL_MARIADB=true
+    INSTALL_PHPMYADMIN=true
+    INSTALL_POSTFIX_DKIM=true
+    INSTALL_CERTBOT=true
+    INSTALL_DEVTOOLS=true
+    INSTALL_NODE=true
+    INSTALL_RUST=true
+    INSTALL_PYTHON3=true
+    INSTALL_COMPOSER=true
+    INSTALL_SHELL_FUN=true
+    INSTALL_YTDL=false
+    INSTALL_CLAMAV=true
+    INSTALL_RKHUNTER=true
+    INSTALL_LOGWATCH=true
+    INSTALL_SSH_ALERT=true
+    INSTALL_AIDE=true
+    INSTALL_MODSEC_CRS=true
+    SECURE_TMP=true
+    INSTALL_BASHRC_GLOBAL=true
+  fi
 fi
 
 # Chemins/constantes dérivées
