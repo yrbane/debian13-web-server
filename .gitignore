@@ -1,0 +1,28 @@
+# Logs
+*.log
+logs/
+
+# Fichiers de configuration locaux (contiennent des secrets)
+.bootstrap.conf
+*.conf.local
+
+# Backups
+*.bak
+*.backup
+*~
+
+# Fichiers temporaires
+*.tmp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Archives de test
+*.tar.gz
+*.zip
