@@ -310,6 +310,16 @@ ask_missing_options() {
       fi
     done
 
+    # Gérer TRUSTED_IPS (variable string, pas yes/no)
+    if [[ -z "${TRUSTED_IPS:-}" ]]; then
+      config_updated=true
+      echo ""
+      echo "IPs de confiance (whitelist fail2ban + ModSecurity)."
+      echo "Exemples: votre IP maison, IP bureau. Séparées par des espaces."
+      echo "Laisser vide pour ignorer."
+      TRUSTED_IPS="$(prompt_default "IPs de confiance" "")"
+    fi
+
     # Sauvegarder la config mise à jour
     if $config_updated; then
       echo ""
@@ -326,6 +336,7 @@ show_config() {
   printf "  %-25s %s\n" "DKIM:" "${DKIM_SELECTOR}@${DKIM_DOMAIN}"
   printf "  %-25s %s\n" "Email Certbot:" "$EMAIL_FOR_CERTBOT"
   printf "  %-25s %s\n" "Timezone:" "$TIMEZONE"
+  printf "  %-25s %s\n" "IPs de confiance:" "${TRUSTED_IPS:-aucune}"
   echo ""
   local comps=""
   $INSTALL_LOCALES && comps+="locales "
@@ -417,6 +428,12 @@ ask_all_questions() {
   INSTALL_BASHRC_GLOBAL=true
   prompt_yes_no "Déployer le .bashrc commun pour tous les utilisateurs ?" "y" || INSTALL_BASHRC_GLOBAL=false
 
+  section "IPs de confiance (whitelist)"
+  echo "IPs qui seront whitelistées dans fail2ban et ModSecurity."
+  echo "Exemples: votre IP maison, IP bureau. Séparées par des espaces."
+  echo "Laisser vide pour ignorer."
+  TRUSTED_IPS="$(prompt_default "IPs de confiance" "${TRUSTED_IPS:-}")"
+
   save_config
 }
 
@@ -434,6 +451,7 @@ if $AUDIT_MODE; then
     SECURE_TMP=${SECURE_TMP:-true}
     INSTALL_BASHRC_GLOBAL=${INSTALL_BASHRC_GLOBAL:-true}
     PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
+    TRUSTED_IPS=${TRUSTED_IPS:-}
   else
     die "Mode audit : fichier de configuration ${CONFIG_FILE} requis. Exécutez d'abord le script normalement."
   fi
@@ -637,13 +655,21 @@ if $INSTALL_FAIL2BAN; then
   section "Fail2ban"
   apt-get install -y fail2ban | tee -a "$LOG_FILE"
   backup_file /etc/fail2ban/jail.local
+
+  # Construire la liste des IPs à ignorer
+  FAIL2BAN_IGNOREIP="127.0.0.1/8 ::1"
+  if [[ -n "${TRUSTED_IPS:-}" ]]; then
+    FAIL2BAN_IGNOREIP="$FAIL2BAN_IGNOREIP $TRUSTED_IPS"
+    log "fail2ban: IPs de confiance ajoutées à ignoreip: $TRUSTED_IPS"
+  fi
+
   cat >/etc/fail2ban/jail.local <<EOF
 [DEFAULT]
 bantime  = 1h
 findtime = 10m
 maxretry = 5
 backend = systemd
-ignoreip = 127.0.0.1/8 ::1
+ignoreip = ${FAIL2BAN_IGNOREIP}
 destemail = root@localhost
 sender = fail2ban@localhost
 mta = sendmail
@@ -1388,6 +1414,22 @@ if $INSTALL_MODSEC_CRS && $INSTALL_APACHE_PHP; then
   # Configurer les logs
   sed -i 's|SecAuditLog .*|SecAuditLog /var/log/apache2/modsec_audit.log|' /etc/modsecurity/modsecurity.conf
 
+  # Whitelist des IPs de confiance (bypass ModSecurity)
+  if [[ -n "${TRUSTED_IPS:-}" ]]; then
+    cat >/etc/modsecurity/whitelist-trusted-ips.conf <<'WHITELIST_HEADER'
+# Whitelist des IPs de confiance
+# Ces IPs bypassent les règles ModSecurity (générées par install.sh)
+WHITELIST_HEADER
+    local rule_id=1000001
+    for ip in $TRUSTED_IPS; do
+      # Échapper les points pour regex
+      ip_escaped=$(echo "$ip" | sed 's/\./\\\\./g')
+      echo "SecRule REMOTE_ADDR \"^${ip_escaped}\$\" \"id:${rule_id},phase:1,allow,nolog,msg:'Trusted IP whitelist: ${ip}'\"" >> /etc/modsecurity/whitelist-trusted-ips.conf
+      ((rule_id++))
+    done
+    log "ModSecurity: IPs de confiance whitelistées: $TRUSTED_IPS"
+  fi
+
   # Inclure les règles CRS
   if [ -d /usr/share/modsecurity-crs ]; then
     cat >/etc/apache2/mods-available/security2.conf <<'MODSECCONF'
@@ -1983,8 +2025,23 @@ if $INSTALL_FAIL2BAN; then
     if [[ "$BANNED_TOTAL" -gt 0 ]]; then
       check_ok "Fail2ban : ${BANNED_TOTAL} IP(s) actuellement bannie(s)"
     fi
+    # Vérifier les IPs de confiance
+    if [[ -n "${TRUSTED_IPS:-}" ]]; then
+      F2B_IGNOREIP=$(grep "^ignoreip" /etc/fail2ban/jail.local 2>/dev/null | cut -d= -f2 || true)
+      check_ok "Fail2ban ignoreip : ${F2B_IGNOREIP:-non configuré}"
+    fi
   else
     check_fail "Fail2ban : inactif"
+  fi
+fi
+
+# IPs de confiance
+if [[ -n "${TRUSTED_IPS:-}" ]]; then
+  check_ok "IPs de confiance configurées : $TRUSTED_IPS"
+  # Vérifier ModSecurity whitelist
+  if [[ -f /etc/modsecurity/whitelist-trusted-ips.conf ]]; then
+    MODSEC_WHITELIST_COUNT=$(grep -c "SecRule REMOTE_ADDR" /etc/modsecurity/whitelist-trusted-ips.conf 2>/dev/null || echo "0")
+    check_ok "ModSecurity whitelist : ${MODSEC_WHITELIST_COUNT} règle(s)"
   fi
 fi
 
@@ -3312,6 +3369,14 @@ HTMLEOF
   if systemctl is-active --quiet fail2ban; then
     F2B_BANS=$(fail2ban-client status 2>/dev/null | grep "Number of jail" | awk '{print $NF}')
     add_html_check ok "Fail2ban : ${F2B_BANS:-0} jail(s) active(s)"
+  fi
+
+  # IPs de confiance
+  if [[ -n "${TRUSTED_IPS:-}" ]]; then
+    add_html_check ok "IPs de confiance : ${TRUSTED_IPS}"
+    if [[ -f /etc/modsecurity/whitelist-trusted-ips.conf ]]; then
+      add_html_check ok "ModSecurity whitelist : configurée"
+    fi
   fi
 
   close_section
