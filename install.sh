@@ -230,19 +230,65 @@ load_config() {
   if [[ -f "$CONFIG_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
-    # Valeurs par défaut pour les nouvelles variables (compatibilité anciennes configs)
-    INSTALL_PYTHON3=${INSTALL_PYTHON3:-true}
-    INSTALL_RKHUNTER=${INSTALL_RKHUNTER:-true}
-    INSTALL_LOGWATCH=${INSTALL_LOGWATCH:-true}
-    INSTALL_SSH_ALERT=${INSTALL_SSH_ALERT:-true}
-    INSTALL_AIDE=${INSTALL_AIDE:-true}
-    INSTALL_MODSEC_CRS=${INSTALL_MODSEC_CRS:-true}
-    SECURE_TMP=${SECURE_TMP:-true}
-    INSTALL_BASHRC_GLOBAL=${INSTALL_BASHRC_GLOBAL:-true}
-    PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
     return 0
   fi
   return 1
+}
+
+# Demande les nouvelles options manquantes dans un ancien fichier de config
+ask_missing_options() {
+  local has_missing=false
+  local config_updated=false
+
+  # Liste des nouvelles variables avec leurs prompts et valeurs par défaut
+  # Format: "VARIABLE|prompt|default"
+  local new_options=(
+    "INSTALL_PYTHON3|Installer Python 3 + pip + venv ?|y"
+    "INSTALL_RKHUNTER|Installer rkhunter (détection rootkits) ?|y"
+    "INSTALL_LOGWATCH|Installer Logwatch (résumé quotidien des logs par email) ?|y"
+    "INSTALL_SSH_ALERT|Activer les alertes email à chaque connexion SSH ?|y"
+    "INSTALL_AIDE|Installer AIDE (détection modifications fichiers) ?|y"
+    "INSTALL_MODSEC_CRS|Installer les règles OWASP CRS pour ModSecurity ?|y"
+    "SECURE_TMP|Sécuriser /tmp (noexec, nosuid, nodev) ?|y"
+    "INSTALL_BASHRC_GLOBAL|Déployer le .bashrc commun pour tous les utilisateurs ?|y"
+    "PHP_DISABLE_FUNCTIONS|Désactiver les fonctions PHP dangereuses (exec, system...) ?|y"
+  )
+
+  # Vérifier quelles options sont manquantes
+  for opt in "${new_options[@]}"; do
+    local var_name="${opt%%|*}"
+    if [[ -z "${!var_name:-}" ]]; then
+      has_missing=true
+      break
+    fi
+  done
+
+  # Si des options manquent, les demander
+  if $has_missing; then
+    echo ""
+    warn "Nouvelles options détectées (absentes de votre configuration) :"
+    echo ""
+
+    for opt in "${new_options[@]}"; do
+      local var_name="${opt%%|*}"
+      local rest="${opt#*|}"
+      local prompt="${rest%%|*}"
+      local default="${rest##*|}"
+
+      # Si la variable n'est pas définie, poser la question
+      if [[ -z "${!var_name:-}" ]]; then
+        config_updated=true
+        declare -g "$var_name=true"
+        prompt_yes_no "$prompt" "$default" || declare -g "$var_name=false"
+      fi
+    done
+
+    # Sauvegarder la config mise à jour
+    if $config_updated; then
+      echo ""
+      save_config
+    fi
+  fi
 }
 
 show_config() {
@@ -348,9 +394,19 @@ ask_all_questions() {
 }
 
 if $AUDIT_MODE; then
-  # Mode audit : charge la config silencieusement
+  # Mode audit : charge la config silencieusement avec valeurs par défaut pour nouvelles options
   if [[ -f "$CONFIG_FILE" ]]; then
     load_config
+    # Valeurs par défaut silencieuses pour le mode audit
+    INSTALL_PYTHON3=${INSTALL_PYTHON3:-true}
+    INSTALL_RKHUNTER=${INSTALL_RKHUNTER:-true}
+    INSTALL_LOGWATCH=${INSTALL_LOGWATCH:-true}
+    INSTALL_SSH_ALERT=${INSTALL_SSH_ALERT:-true}
+    INSTALL_AIDE=${INSTALL_AIDE:-true}
+    INSTALL_MODSEC_CRS=${INSTALL_MODSEC_CRS:-true}
+    SECURE_TMP=${SECURE_TMP:-true}
+    INSTALL_BASHRC_GLOBAL=${INSTALL_BASHRC_GLOBAL:-true}
+    PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
   else
     die "Mode audit : fichier de configuration ${CONFIG_FILE} requis. Exécutez d'abord le script normalement."
   fi
@@ -359,6 +415,8 @@ elif ! $NONINTERACTIVE; then
   if [[ -f "$CONFIG_FILE" ]]; then
     section "Configuration existante détectée"
     load_config
+    # Demander les nouvelles options si absentes
+    ask_missing_options
     show_config
     echo ""
     if prompt_yes_no "Utiliser cette configuration ?" "y"; then
