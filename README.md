@@ -44,23 +44,65 @@ Script d'installation et de configuration sécurisée d'un serveur web Debian 13
 
 ## Prérequis
 
-- Debian 13 (Trixie) fraîchement installé
-- Accès root
+- Debian 13 (Trixie) fraîchement installé (installation minimale recommandée)
+- Accès root (ou sudo)
 - Connexion internet
 - Clé SSH publique pour l'utilisateur admin
+- Nom de domaine pointant vers le serveur (optionnel mais recommandé pour SSL)
 
 ## Installation
 
+### Méthode 1 : Installation rapide (une commande)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yrbane/debian13-web-server/main/install.sh | sudo bash
+```
+
+### Méthode 2 : Téléchargement puis exécution (recommandé)
+
 ```bash
 # Télécharger le script
-wget https://raw.githubusercontent.com/VOTRE_USER/debian13-web-server/main/install.sh
-chmod +x install.sh
+wget https://raw.githubusercontent.com/yrbane/debian13-web-server/main/install.sh
 
-# Lancer l'installation (en root)
+# Vérifier le contenu (optionnel mais recommandé)
+less install.sh
+
+# Rendre exécutable et lancer
+chmod +x install.sh
 sudo ./install.sh
 ```
 
-Le script pose des questions interactives pour personnaliser l'installation.
+### Méthode 3 : Cloner le dépôt
+
+```bash
+git clone https://github.com/yrbane/debian13-web-server.git
+cd debian13-web-server
+sudo ./install.sh
+```
+
+### Déroulement de l'installation
+
+1. **Questions interactives** : Le script vous demande de configurer :
+   - Nom d'hôte (FQDN) du serveur
+   - Port SSH personnalisé
+   - Nom de l'utilisateur administrateur
+   - Email pour Let's Encrypt et les alertes
+   - Composants à installer (Apache, MariaDB, Node.js, etc.)
+
+2. **Installation automatique** : Une fois les questions répondues, le script installe et configure automatiquement tous les composants sélectionnés.
+
+3. **Sauvegarde de la configuration** : Les réponses sont sauvegardées dans `/root/.bootstrap.conf` pour les exécutions futures.
+
+4. **Vérifications** : À la fin, le script affiche un récapitulatif de l'installation avec les éventuels avertissements.
+
+5. **Récapitulatif** : Instructions post-installation (DNS, certificats SSL, commandes utiles).
+
+### Réexécution du script
+
+Si vous relancez le script, il détecte la configuration existante et propose :
+- Utiliser la configuration précédente
+- Modifier la configuration
+- Repartir de zéro
 
 ## Usage
 
