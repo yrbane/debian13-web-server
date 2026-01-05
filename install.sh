@@ -297,7 +297,7 @@ ask_all_questions() {
   INSTALL_CERTBOT=true
   prompt_yes_no "Installer Certbot (Let's Encrypt) + module Apache ?" "y" || INSTALL_CERTBOT=false
   INSTALL_DEVTOOLS=true
-  prompt_yes_no "Installer Git/Curl/build-essential ?" "y" || INSTALL_DEVTOOLS=false
+  prompt_yes_no "Installer Git/Curl/build-essential/grc ?" "y" || INSTALL_DEVTOOLS=false
   INSTALL_NODE=true
   prompt_yes_no "Installer Node.js via nvm (LTS) ?" "y" || INSTALL_NODE=false
   INSTALL_RUST=true
@@ -744,8 +744,8 @@ fi
 
 # ---------------------------------- 9) Dev tools --------------------------------------
 if $INSTALL_DEVTOOLS; then
-  section "Outils dev (Git/Curl/build-essential/pkg-config)"
-  apt-get install -y git curl build-essential pkg-config dnsutils | tee -a "$LOG_FILE"
+  section "Outils dev (Git/Curl/build-essential/grc)"
+  apt-get install -y git curl build-essential pkg-config dnsutils grc | tee -a "$LOG_FILE"
 fi
 
 # ---------------------------------- 10) Node (nvm) ------------------------------------
@@ -1522,8 +1522,51 @@ alias lsd="ls --color=auto -lhaF"
 alias update="apt-get update && apt-get upgrade && apt-get dist-upgrade && apt-get autoclean && apt-get clean && apt-get autoremove && debclean"
 alias nano="nano -c "
 alias miseajour='apt-get update &&  apt-get upgrade -y &&  apt-get dist-upgrade -y &&   apt-get autoclean -y &&  apt-get clean -y &&  apt-get autoremove -y'
-alias tail="grc tail "
-alias ifconfig="grc ifconfig "
+# grc - Generic Colouriser (colorise les sorties de commandes)
+if command -v grc &>/dev/null; then
+  alias tail='grc tail'
+  alias head='grc head'
+  alias cat='grc cat'
+  alias ifconfig='grc ifconfig'
+  alias ip='grc ip'
+  alias ping='grc ping'
+  alias traceroute='grc traceroute'
+  alias netstat='grc netstat'
+  alias ss='grc ss'
+  alias ps='grc ps'
+  alias dig='grc dig'
+  alias df='grc df'
+  alias du='grc du'
+  alias free='grc free'
+  alias mount='grc mount'
+  alias env='grc env'
+  alias systemctl='grc systemctl'
+  alias journalctl='grc journalctl'
+  alias last='grc last'
+  alias lastlog='grc lastlog'
+  alias diff='grc diff'
+  alias make='grc make'
+  alias gcc='grc gcc'
+  alias g++='grc g++'
+  alias ld='grc ld'
+  alias lsblk='grc lsblk'
+  alias lsof='grc lsof'
+  alias lspci='grc lspci'
+  alias lsusb='grc lsusb'
+  alias uptime='grc uptime'
+  alias w='grc w'
+  alias who='grc who'
+  alias id='grc id'
+  alias fdisk='grc fdisk'
+  alias blkid='grc blkid'
+  alias nmap='grc nmap'
+  alias docker='grc docker'
+  alias docker-compose='grc docker-compose'
+  alias kubectl='grc kubectl'
+  alias apt='grc apt'
+  alias apt-get='grc apt-get'
+  alias dpkg='grc dpkg'
+fi
 alias zik='beep -f 1150 -n -f 1450 -n -f 1300 -l 300 -n -f 1150 -l 300 -n -f 1100 -l 300 -n -f 1150 -l 300 -n -f 850 -l 300'
 
 alias s='symfony '
