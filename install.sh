@@ -69,9 +69,16 @@ DKIM_DOMAIN_DEFAULT="bysince.fr"
 EMAIL_FOR_CERTBOT_DEFAULT="root@bysince.fr"
 TIMEZONE_DEFAULT="Europe/Paris"
 
-# Fichier de configuration (à côté du script)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="${SCRIPT_DIR}/.bootstrap.conf"
+# Fichier de configuration
+# Gère le cas où le script est exécuté via pipe (curl | bash)
+if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  CONFIG_FILE="${SCRIPT_DIR}/.bootstrap.conf"
+else
+  # Exécution via pipe : utiliser /root comme fallback
+  SCRIPT_DIR="/root"
+  CONFIG_FILE="/root/.bootstrap.conf"
+fi
 
 # ---------------------------------- Aide / usage --------------------------------------
 show_help() {
@@ -223,6 +230,16 @@ load_config() {
   if [[ -f "$CONFIG_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
+    # Valeurs par défaut pour les nouvelles variables (compatibilité anciennes configs)
+    INSTALL_PYTHON3=${INSTALL_PYTHON3:-true}
+    INSTALL_RKHUNTER=${INSTALL_RKHUNTER:-true}
+    INSTALL_LOGWATCH=${INSTALL_LOGWATCH:-true}
+    INSTALL_SSH_ALERT=${INSTALL_SSH_ALERT:-true}
+    INSTALL_AIDE=${INSTALL_AIDE:-true}
+    INSTALL_MODSEC_CRS=${INSTALL_MODSEC_CRS:-true}
+    SECURE_TMP=${SECURE_TMP:-true}
+    INSTALL_BASHRC_GLOBAL=${INSTALL_BASHRC_GLOBAL:-true}
+    PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
     return 0
   fi
   return 1

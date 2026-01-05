@@ -54,6 +54,9 @@ Script d'installation et de configuration sécurisée d'un serveur web Debian 13
 
 ### Méthode 1 : Installation rapide (une commande)
 
+> **Note** : Cette méthode nécessite une configuration existante (`/root/.bootstrap.conf`).
+> Pour une première installation, utilisez la méthode 2 ou 3.
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/yrbane/debian13-web-server/main/install.sh | sudo bash
 ```
