@@ -203,6 +203,7 @@ INSTALL_CERTBOT=${INSTALL_CERTBOT}
 INSTALL_DEVTOOLS=${INSTALL_DEVTOOLS}
 INSTALL_NODE=${INSTALL_NODE}
 INSTALL_RUST=${INSTALL_RUST}
+INSTALL_PYTHON3=${INSTALL_PYTHON3}
 INSTALL_COMPOSER=${INSTALL_COMPOSER}
 INSTALL_SHELL_FUN=${INSTALL_SHELL_FUN}
 INSTALL_YTDL=${INSTALL_YTDL}
@@ -250,6 +251,7 @@ show_config() {
   $INSTALL_DEVTOOLS && comps+="devtools "
   $INSTALL_NODE && comps+="node "
   $INSTALL_RUST && comps+="rust "
+  $INSTALL_PYTHON3 && comps+="python3 "
   $INSTALL_COMPOSER && comps+="composer "
   $INSTALL_SHELL_FUN && comps+="shell-fun "
   $INSTALL_YTDL && comps+="youtube-dl "
@@ -300,6 +302,8 @@ ask_all_questions() {
   prompt_yes_no "Installer Node.js via nvm (LTS) ?" "y" || INSTALL_NODE=false
   INSTALL_RUST=true
   prompt_yes_no "Installer Rust (rustup stable) ?" "y" || INSTALL_RUST=false
+  INSTALL_PYTHON3=true
+  prompt_yes_no "Installer Python 3 + pip + venv ?" "y" || INSTALL_PYTHON3=false
   INSTALL_COMPOSER=true
   prompt_yes_no "Installer Composer (global) ?" "y" || INSTALL_COMPOSER=false
   INSTALL_SHELL_FUN=true
@@ -369,6 +373,7 @@ else
   INSTALL_DEVTOOLS=true
   INSTALL_NODE=true
   INSTALL_RUST=true
+  INSTALL_PYTHON3=true
   INSTALL_COMPOSER=true
   INSTALL_SHELL_FUN=true
   INSTALL_YTDL=false
@@ -791,6 +796,32 @@ if $INSTALL_RUST; then
     ln -sf "${USER_HOME}/.cargo/bin/cargo" /usr/local/bin/cargo || true
   fi
   log "Rust installé pour ${ADMIN_USER}."
+fi
+
+# ---------------------------------- 11b) Python 3 --------------------------------------
+if $INSTALL_PYTHON3; then
+  section "Python 3 + pip + venv"
+
+  # Installation des paquets Python
+  apt-get install -y python3 python3-pip python3-venv python3-dev python3-setuptools python3-wheel
+
+  # Mise à jour pip pour l'utilisateur admin
+  USER_HOME="$(get_user_home)"
+  run_as_user "python3 -m pip install --user --upgrade pip setuptools wheel"
+
+  # Installation de quelques outils utiles pour l'utilisateur admin
+  run_as_user "python3 -m pip install --user pipx virtualenv"
+
+  # Ajouter ~/.local/bin au PATH si pas déjà présent
+  if ! grep -q 'export PATH=.*\.local/bin' "${USER_HOME}/.bashrc" 2>/dev/null; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "${USER_HOME}/.bashrc"
+  fi
+
+  # Afficher les versions installées
+  python3 --version
+  python3 -m pip --version || true
+
+  log "Python 3 + pip + venv installé."
 fi
 
 # ---------------------------------- 12) Composer --------------------------------------
@@ -2203,6 +2234,23 @@ if $INSTALL_RUST; then
   fi
 fi
 
+# Python 3
+if $INSTALL_PYTHON3; then
+  if command -v python3 >/dev/null 2>&1; then
+    PYTHON_VER=$(python3 --version 2>/dev/null | awk '{print $2}')
+    check_ok "Python : ${PYTHON_VER}"
+    # Vérifier pip
+    if python3 -m pip --version >/dev/null 2>&1; then
+      PIP_VER=$(python3 -m pip --version 2>/dev/null | awk '{print $2}')
+      check_ok "pip : ${PIP_VER}"
+    else
+      check_warn "pip : non installé"
+    fi
+  else
+    check_fail "Python 3 : non installé"
+  fi
+fi
+
 # Composer
 if $INSTALL_COMPOSER; then
   if [[ -f "${USER_HOME}/.local/bin/composer" ]]; then
@@ -2784,6 +2832,17 @@ print_note "unattended-upgrades : patchs sécurité auto"
 print_note "check-updates.sh : rapport hebdo (lundi 7h00) → ${EMAIL_FOR_CERTBOT}"
 print_cmd "crontab -l | grep check-updates"
 echo ""
+
+if $INSTALL_PYTHON3; then
+  print_title "Python 3"
+  print_note "Version : $(python3 --version 2>/dev/null | awk '{print $2}')"
+  print_note "pip, venv, pipx, virtualenv installés"
+  print_note "Créer un environnement virtuel :"
+  print_cmd "python3 -m venv mon_projet_venv && source mon_projet_venv/bin/activate"
+  print_note "Installer un package utilisateur :"
+  print_cmd "pip install --user nom_package"
+  echo ""
+fi
 
 if $INSTALL_RKHUNTER; then
   print_title "rkhunter (détection rootkits)"
