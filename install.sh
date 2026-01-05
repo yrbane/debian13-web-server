@@ -252,8 +252,11 @@ CONF
 
 load_config() {
   if [[ -f "$CONFIG_FILE" ]]; then
+    # Désactiver temporairement set -u pour gérer les anciennes configs
+    set +u
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
+    set -u
     return 0
   fi
   return 1
