@@ -1441,7 +1441,7 @@ if $INSTALL_MODSEC_CRS && $INSTALL_APACHE_PHP; then
 # Whitelist des IPs de confiance
 # Ces IPs bypassent les règles ModSecurity (générées par install.sh)
 WHITELIST_HEADER
-    local rule_id=1000001
+    rule_id=1000001
     for ip in $TRUSTED_IPS; do
       # Échapper les points pour regex
       ip_escaped=$(echo "$ip" | sed 's/\./\\\\./g')
