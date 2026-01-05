@@ -2597,8 +2597,8 @@ if [[ -f /var/log/auth.log ]]; then
 fi
 
 # Dernière connexion réussie
-LAST_LOGIN=$(lastlog -u "$ADMIN_USER" 2>/dev/null | tail -1 | awk '{print $4, $5, $6, $7, $9}' | grep -v "Never")
-if [[ -n "$LAST_LOGIN" ]]; then
+LAST_LOGIN=$(lastlog -u "$ADMIN_USER" 2>/dev/null | tail -1 | awk '{print $4, $5, $6, $7, $9}' | grep -v "Never" || true)
+if [[ -n "$LAST_LOGIN" && "$LAST_LOGIN" != *"Never"* ]]; then
   printf "  ${CYAN}Dernière connexion ${ADMIN_USER} : ${LAST_LOGIN}${RESET}\n"
 fi
 
