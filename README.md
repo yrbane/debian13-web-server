@@ -32,7 +32,7 @@ Script d'installation et de configuration sécurisée d'un serveur web Debian 13
 - Configuration SPF/DKIM/DMARC guidée
 
 ### Outils de développement (optionnels)
-- **Python 3** avec pip, venv, pipx, virtualenv
+- **Python 3** avec pip, venv, pipx (PEP 668 compliant)
 - **Node.js** via NVM
 - **Rust** via rustup
 - **Composer** (PHP)

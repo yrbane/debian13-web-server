@@ -917,17 +917,15 @@ fi
 
 # ---------------------------------- 11b) Python 3 --------------------------------------
 if $INSTALL_PYTHON3; then
-  section "Python 3 + pip + venv"
+  section "Python 3 + pip + venv + pipx"
 
-  # Installation des paquets Python
-  apt-get install -y python3 python3-pip python3-venv python3-dev python3-setuptools python3-wheel
+  # Installation des paquets Python (pipx via apt pour respecter PEP 668)
+  apt-get install -y python3 python3-pip python3-venv python3-dev python3-setuptools python3-wheel python3-full pipx
 
-  # Mise à jour pip pour l'utilisateur admin
   USER_HOME="$(get_user_home)"
-  run_as_user "python3 -m pip install --user --upgrade pip setuptools wheel"
 
-  # Installation de quelques outils utiles pour l'utilisateur admin
-  run_as_user "python3 -m pip install --user pipx virtualenv"
+  # Initialiser pipx pour l'utilisateur admin
+  run_as_user "pipx ensurepath" || true
 
   # Ajouter ~/.local/bin au PATH si pas déjà présent
   if ! grep -q 'export PATH=.*\.local/bin' "${USER_HOME}/.bashrc" 2>/dev/null; then
@@ -937,8 +935,9 @@ if $INSTALL_PYTHON3; then
   # Afficher les versions installées
   python3 --version
   python3 -m pip --version || true
+  pipx --version || true
 
-  log "Python 3 + pip + venv installé."
+  log "Python 3 + pip + venv + pipx installé."
 fi
 
 # ---------------------------------- 12) Composer --------------------------------------
@@ -2406,6 +2405,13 @@ if $INSTALL_PYTHON3; then
     else
       check_warn "pip : non installé"
     fi
+    # Vérifier pipx
+    if command -v pipx >/dev/null 2>&1; then
+      PIPX_VER=$(pipx --version 2>/dev/null)
+      check_ok "pipx : ${PIPX_VER}"
+    else
+      check_warn "pipx : non installé"
+    fi
   else
     check_fail "Python 3 : non installé"
   fi
@@ -2996,11 +3002,13 @@ echo ""
 if $INSTALL_PYTHON3; then
   print_title "Python 3"
   print_note "Version : $(python3 --version 2>/dev/null | awk '{print $2}')"
-  print_note "pip, venv, pipx, virtualenv installés"
+  print_note "pip, venv, pipx installés (PEP 668 compliant)"
   print_note "Créer un environnement virtuel :"
   print_cmd "python3 -m venv mon_projet_venv && source mon_projet_venv/bin/activate"
-  print_note "Installer un package utilisateur :"
-  print_cmd "pip install --user nom_package"
+  print_note "Installer une application Python (recommandé) :"
+  print_cmd "pipx install nom_application"
+  print_note "Installer un package dans un venv :"
+  print_cmd "source mon_venv/bin/activate && pip install nom_package"
   echo ""
 fi
 
