@@ -523,12 +523,26 @@ backup_file() {
 
 # Exécute une commande en tant qu'utilisateur admin (pas root)
 run_as_user() {
+  if [[ -z "${ADMIN_USER:-}" ]]; then
+    warn "ADMIN_USER non défini, commande ignorée: $1"
+    return 1
+  fi
   sudo -u "$ADMIN_USER" -H bash -c "$1"
 }
 
 # Récupère le home de l'utilisateur admin
 get_user_home() {
-  getent passwd "$ADMIN_USER" | cut -d: -f6
+  if [[ -z "${ADMIN_USER:-}" ]]; then
+    echo "/root"
+    return
+  fi
+  local home_dir
+  home_dir=$(getent passwd "$ADMIN_USER" 2>/dev/null | cut -d: -f6)
+  if [[ -n "$home_dir" ]]; then
+    echo "$home_dir"
+  else
+    echo "/home/${ADMIN_USER}"
+  fi
 }
 
 apt_update_upgrade() {
