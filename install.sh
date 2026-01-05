@@ -807,9 +807,21 @@ if $INSTALL_POSTFIX_DKIM; then
 
   # Génère une clé uniquement si absente
   if [[ ! -f "${DKIM_KEYDIR}/${DKIM_SELECTOR}.private" ]]; then
-    opendkim-genkey -s "${DKIM_SELECTOR}" -d "${DKIM_DOMAIN}" -b 2048 -r -D "${DKIM_KEYDIR}"
-    chown opendkim:opendkim "${DKIM_KEYDIR}/${DKIM_SELECTOR}.private"
-    chmod 600 "${DKIM_KEYDIR}/${DKIM_SELECTOR}.private"
+    # S'assurer que le répertoire est accessible pour la génération
+    chmod 755 "${DKIM_KEYDIR}"
+    # Supprimer les fichiers partiels s'ils existent
+    rm -f "${DKIM_KEYDIR}/${DKIM_SELECTOR}.txt" 2>/dev/null || true
+    # Générer la clé
+    if opendkim-genkey -s "${DKIM_SELECTOR}" -d "${DKIM_DOMAIN}" -b 2048 -r -D "${DKIM_KEYDIR}"; then
+      chown opendkim:opendkim "${DKIM_KEYDIR}/${DKIM_SELECTOR}.private"
+      chmod 600 "${DKIM_KEYDIR}/${DKIM_SELECTOR}.private"
+      chmod 644 "${DKIM_KEYDIR}/${DKIM_SELECTOR}.txt"
+    else
+      warn "Échec de génération de clé DKIM. Vérifiez manuellement."
+    fi
+    # Restaurer les permissions restrictives
+    chmod 750 "${DKIM_KEYDIR}"
+    chown -R opendkim:opendkim "${DKIM_KEYDIR}"
   fi
 
   backup_file /etc/opendkim.conf
