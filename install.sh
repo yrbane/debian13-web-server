@@ -2642,7 +2642,8 @@ else
 fi
 
 # Mises à jour en attente
-UPDATES_PENDING=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | wc -l)
+UPDATES_PENDING=$(apt-get -s upgrade 2>/dev/null | grep -c "^Inst " || true)
+UPDATES_PENDING=$(echo "$UPDATES_PENDING" | tr -d '[:space:]')
 UPDATES_PENDING=${UPDATES_PENDING:-0}
 if [[ "$UPDATES_PENDING" -eq 0 ]]; then
   check_ok "Système : à jour (pas de mises à jour en attente)"
@@ -3215,6 +3216,7 @@ if dmesg &>/dev/null; then
 else
   OOM_EVENTS=$(journalctl -k --since "7 days ago" 2>/dev/null | grep -c "Out of memory" || true)
 fi
+OOM_EVENTS=$(echo "$OOM_EVENTS" | tr -d '[:space:]')
 OOM_EVENTS=${OOM_EVENTS:-0}
 if [[ "$OOM_EVENTS" -gt 0 ]]; then
   check_warn "Mémoire : ${OOM_EVENTS} événement(s) OOM Killer récent(s)"
