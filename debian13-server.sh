@@ -71,7 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.2.1"
+SCRIPT_VERSION="1.2.2"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -4141,11 +4141,16 @@ PROGHTML
     YESTERDAY_PATTERN=$(date -d "yesterday" '+%d/%b/%Y')
 
     if [[ -f "$ACCESS_LOG" ]]; then
-      # Stats générales access.log
-      TOTAL_REQUESTS=$(grep -cE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null || echo "0")
-      TOTAL_404=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -c '" 404 ' || echo "0")
-      TOTAL_500=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -c '" 50[0-9] ' || echo "0")
-      UNIQUE_IPS=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | awk '{print $1}' | sort -u | wc -l || echo "0")
+      # Stats générales access.log (head -1 pour éviter les multi-lignes)
+      TOTAL_REQUESTS=$(grep -cE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | head -1 || echo "0")
+      TOTAL_404=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -c '" 404 ' | head -1 || echo "0")
+      TOTAL_500=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -c '" 50[0-9] ' | head -1 || echo "0")
+      UNIQUE_IPS=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | awk '{print $1}' | sort -u | wc -l | tr -d ' ' || echo "0")
+      # Nettoyer les valeurs (supprimer espaces/newlines)
+      TOTAL_REQUESTS=${TOTAL_REQUESTS//[^0-9]/}; [[ -z "$TOTAL_REQUESTS" ]] && TOTAL_REQUESTS=0
+      TOTAL_404=${TOTAL_404//[^0-9]/}; [[ -z "$TOTAL_404" ]] && TOTAL_404=0
+      TOTAL_500=${TOTAL_500//[^0-9]/}; [[ -z "$TOTAL_500" ]] && TOTAL_500=0
+      UNIQUE_IPS=${UNIQUE_IPS//[^0-9]/}; [[ -z "$UNIQUE_IPS" ]] && UNIQUE_IPS=0
 
       add_stats_grid_open
       add_stat_box "${TOTAL_REQUESTS}" "Requêtes" ""
@@ -4158,7 +4163,8 @@ PROGHTML
 
       # Détection URLs suspectes (scanners de vulnérabilités)
       SUSPICIOUS_PATTERNS='(wp-login|wp-admin|wp-content|wp-includes|xmlrpc\.php|\.env|\.git|phpinfo|phpmyadmin|pma|adminer|\.sql|\.bak|\.zip|\.tar|\.rar|shell|eval\(|base64|union.*select|concat\(|etc/passwd|\.\.\/|%2e%2e|<script|\.asp|\.aspx|cgi-bin|\.cgi)'
-      SUSPICIOUS_HITS=$(grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -icE "$SUSPICIOUS_PATTERNS" || echo "0")
+      SUSPICIOUS_HITS=$(grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -icE "$SUSPICIOUS_PATTERNS" | head -1 || echo "0")
+      SUSPICIOUS_HITS=${SUSPICIOUS_HITS//[^0-9]/}; [[ -z "$SUSPICIOUS_HITS" ]] && SUSPICIOUS_HITS=0
 
       if [[ "$SUSPICIOUS_HITS" -gt 100 ]]; then
         add_html_check fail "URLs suspectes : ${SUSPICIOUS_HITS} requêtes (scanners actifs !)"
@@ -4181,7 +4187,8 @@ PROGHTML
 
       # Bots malveillants (User-Agents suspects)
       BAD_BOTS='(nikto|sqlmap|nmap|masscan|zgrab|census|shodan|curl/|wget/|python-requests|go-http|libwww|scanner|exploit|vulnerability|attack)'
-      BAD_BOT_HITS=$(grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -icE "$BAD_BOTS" || echo "0")
+      BAD_BOT_HITS=$(grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -icE "$BAD_BOTS" | head -1 || echo "0")
+      BAD_BOT_HITS=${BAD_BOT_HITS//[^0-9]/}; [[ -z "$BAD_BOT_HITS" ]] && BAD_BOT_HITS=0
 
       if [[ "$BAD_BOT_HITS" -gt 50 ]]; then
         add_html_check fail "Bots malveillants : ${BAD_BOT_HITS} requêtes"
@@ -4199,7 +4206,9 @@ PROGHTML
       TODAY_ERR=$(date '+%a %b %d')
       YESTERDAY_ERR=$(date -d "yesterday" '+%a %b %d')
       PHP_ERRORS=$(grep -cE "^\[${TODAY_ERR}|^\[${YESTERDAY_ERR}" "$ERROR_LOG" 2>/dev/null | head -1 || echo "0")
-      PHP_FATAL=$(grep -E "^\[${TODAY_ERR}|^\[${YESTERDAY_ERR}" "$ERROR_LOG" 2>/dev/null | grep -ic "fatal\|critical" || echo "0")
+      PHP_ERRORS=${PHP_ERRORS//[^0-9]/}; [[ -z "$PHP_ERRORS" ]] && PHP_ERRORS=0
+      PHP_FATAL=$(grep -E "^\[${TODAY_ERR}|^\[${YESTERDAY_ERR}" "$ERROR_LOG" 2>/dev/null | grep -ic "fatal\|critical" | head -1 || echo "0")
+      PHP_FATAL=${PHP_FATAL//[^0-9]/}; [[ -z "$PHP_FATAL" ]] && PHP_FATAL=0
 
       if [[ "$PHP_FATAL" -gt 0 ]]; then
         add_html_check fail "Erreurs fatales PHP : ${PHP_FATAL}"
