@@ -71,7 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.1.1"
+SCRIPT_VERSION="1.1.2"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -1281,8 +1281,11 @@ if $INSTALL_POSTFIX_DKIM; then
   chown -R opendkim:opendkim /etc/opendkim
   chmod -R go-rwx /etc/opendkim
 
-  # Génère une clé uniquement si absente
+  # Configure OpenDKIM uniquement si la clé n'existe pas (première installation)
+  # ou si les fichiers de config sont absents
+  DKIM_NEEDS_CONFIG=false
   if [[ ! -f "${DKIM_KEYDIR}/${DKIM_SELECTOR}.private" ]]; then
+    DKIM_NEEDS_CONFIG=true
     # S'assurer que le répertoire est accessible pour la génération
     chmod 755 "${DKIM_KEYDIR}"
     # Supprimer les fichiers partiels s'ils existent
@@ -1298,10 +1301,17 @@ if $INSTALL_POSTFIX_DKIM; then
     # Restaurer les permissions restrictives
     chmod 750 "${DKIM_KEYDIR}"
     chown -R opendkim:opendkim "${DKIM_KEYDIR}"
+  elif [[ ! -f /etc/opendkim/signingtable ]] || [[ ! -f /etc/opendkim/keytable ]]; then
+    DKIM_NEEDS_CONFIG=true
+    log "Clé DKIM existante, mais fichiers de config manquants. Reconfiguration..."
+  else
+    log "OpenDKIM déjà configuré. Clé et config existantes conservées."
   fi
 
-  backup_file /etc/opendkim.conf
-  cat >/etc/opendkim.conf <<EOF
+  # Ne (re)configurer que si nécessaire
+  if $DKIM_NEEDS_CONFIG; then
+    backup_file /etc/opendkim.conf
+    cat >/etc/opendkim.conf <<EOF
 Syslog                  yes
 LogWhy                  yes
 UMask                   007
@@ -1319,20 +1329,23 @@ InternalHosts           /etc/opendkim/trustedhosts
 SignatureAlgorithm      rsa-sha256
 EOF
 
-  cat >/etc/opendkim/signingtable <<EOF
+    cat >/etc/opendkim/signingtable <<EOF
 *@${DKIM_DOMAIN} ${DKIM_SELECTOR}._domainkey.${DKIM_DOMAIN}
 EOF
 
-  cat >/etc/opendkim/keytable <<EOF
+    cat >/etc/opendkim/keytable <<EOF
 ${DKIM_SELECTOR}._domainkey.${DKIM_DOMAIN} ${DKIM_DOMAIN}:${DKIM_SELECTOR}:${DKIM_KEYDIR}/${DKIM_SELECTOR}.private
 EOF
 
-  cat >/etc/opendkim/trustedhosts <<'EOF'
+    cat >/etc/opendkim/trustedhosts <<'EOF'
 127.0.0.1
 localhost
 ::1
 EOF
+    note "Configuration OpenDKIM créée/mise à jour."
+  fi
 
+  # Ces paramètres Postfix peuvent être réappliqués sans risque
   postconf -e "milter_default_action=accept"
   postconf -e "milter_protocol=6"
   postconf -e "smtpd_milters=inet:localhost:8891"
