@@ -54,11 +54,11 @@ Script d'installation et de configuration sécurisée d'un serveur web Debian 13
 
 ### Méthode 1 : Réexécution rapide (une commande)
 
-> **Important** : Cette méthode ne fonctionne que si vous avez déjà une configuration (`/root/.bootstrap.conf`).
+> **Important** : Cette méthode ne fonctionne que si vous avez déjà une configuration (`/root/scripts/debian13-server.conf`).
 > Pour une **première installation**, utilisez obligatoirement la méthode 2 ou 3.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yrbane/debian13-web-server/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/yrbane/debian13-web-server/main/debian13-server.sh | sudo bash
 ```
 
 Le script détecte automatiquement le mode pipe et :
@@ -70,14 +70,14 @@ Le script détecte automatiquement le mode pipe et :
 
 ```bash
 # Télécharger le script
-wget https://raw.githubusercontent.com/yrbane/debian13-web-server/main/install.sh
+wget https://raw.githubusercontent.com/yrbane/debian13-web-server/main/debian13-server.sh
 
 # Vérifier le contenu (optionnel mais recommandé)
-less install.sh
+less debian13-server.sh
 
 # Rendre exécutable et lancer
-chmod +x install.sh
-sudo ./install.sh
+chmod +x debian13-server.sh
+sudo ./debian13-server.sh
 ```
 
 ### Méthode 3 : Cloner le dépôt
@@ -85,7 +85,7 @@ sudo ./install.sh
 ```bash
 git clone https://github.com/yrbane/debian13-web-server.git
 cd debian13-web-server
-sudo ./install.sh
+sudo ./debian13-server.sh
 ```
 
 ### Déroulement de l'installation
@@ -99,7 +99,7 @@ sudo ./install.sh
 
 2. **Installation automatique** : Une fois les questions répondues, le script installe et configure automatiquement tous les composants sélectionnés.
 
-3. **Sauvegarde de la configuration** : Les réponses sont sauvegardées dans `/root/.bootstrap.conf` pour les exécutions futures.
+3. **Sauvegarde de la configuration** : Les réponses sont sauvegardées dans `/root/scripts/debian13-server.conf` pour les exécutions futures.
 
 4. **Vérifications** : À la fin, le script affiche un récapitulatif de l'installation avec les éventuels avertissements.
 
@@ -133,7 +133,7 @@ Le mode audit :
 
 ## Configuration persistante
 
-Le script sauvegarde la configuration dans `/root/.bootstrap.conf` pour :
+Le script sauvegarde la configuration dans `/root/scripts/debian13-server.conf` pour :
 - Réexécuter le script sans re-répondre aux questions
 - Permettre le mode --audit de fonctionner correctement
 
@@ -164,9 +164,10 @@ opendkim-testkey -d votredomaine.fr -s dkim -x /etc/opendkim.conf
 
 ```
 /root/
-├── .bootstrap.conf          # Configuration sauvegardée
 ├── .phpmyadmin_alias        # URL secrète phpMyAdmin
 └── scripts/
+    ├── debian13-server.sh   # Script principal
+    ├── debian13-server.conf # Configuration sauvegardée
     ├── clamav_scan.sh       # Scan antivirus quotidien
     ├── check-updates.sh     # Rapport mises à jour hebdo
     ├── rkhunter_scan.sh     # Scan rootkits

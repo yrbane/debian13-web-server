@@ -69,16 +69,17 @@ DKIM_DOMAIN_DEFAULT="bysince.fr"
 EMAIL_FOR_CERTBOT_DEFAULT="root@bysince.fr"
 TIMEZONE_DEFAULT="Europe/Paris"
 
-# Fichier de configuration (toujours dans /root pour cohérence)
-CONFIG_FILE="/root/.bootstrap.conf"
-
-# Répertoire du script (pour référence)
+# Répertoire et nom du script
+SCRIPT_NAME="debian13-server"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
   # Exécution via pipe
   SCRIPT_DIR="/root/scripts"
 fi
+
+# Fichier de configuration (à côté du script, même nom avec .conf)
+CONFIG_FILE="${SCRIPT_DIR}/${SCRIPT_NAME}.conf"
 
 # ---------------------------------- Aide / usage --------------------------------------
 show_help() {
@@ -3864,7 +3865,8 @@ fi
 # ================================== COPIE SCRIPT & CRON AUDIT =========================
 # Copier le script dans /root/scripts pour le cron (emplacement stable)
 INSTALL_SCRIPT_DIR="/root/scripts"
-INSTALL_SCRIPT_PATH="${INSTALL_SCRIPT_DIR}/install.sh"
+INSTALL_SCRIPT_PATH="${INSTALL_SCRIPT_DIR}/${SCRIPT_NAME}.sh"
+INSTALL_CONFIG_PATH="${INSTALL_SCRIPT_DIR}/${SCRIPT_NAME}.conf"
 mkdir -p "$INSTALL_SCRIPT_DIR"
 
 # Copier le script si exécuté depuis ailleurs
@@ -3875,22 +3877,30 @@ if [[ "$CURRENT_SCRIPT" != "$INSTALL_SCRIPT_PATH" ]]; then
   log "Script copié dans ${INSTALL_SCRIPT_PATH}"
 fi
 
-# Migrer l'ancien .bootstrap.conf s'il existe ailleurs
-OLD_CONFIG="${SCRIPT_DIR}/.bootstrap.conf"
-if [[ -f "$OLD_CONFIG" && "$OLD_CONFIG" != "$CONFIG_FILE" && ! -f "$CONFIG_FILE" ]]; then
-  cp -f "$OLD_CONFIG" "$CONFIG_FILE"
-  log "Configuration migrée vers ${CONFIG_FILE}"
+# Copier/migrer la configuration
+if [[ -f "$CONFIG_FILE" && "$CONFIG_FILE" != "$INSTALL_CONFIG_PATH" ]]; then
+  cp -f "$CONFIG_FILE" "$INSTALL_CONFIG_PATH"
+  log "Configuration copiée dans ${INSTALL_CONFIG_PATH}"
 fi
+
+# Migrer les anciens fichiers de config si présents
+for old_conf in "/root/.bootstrap.conf" "${SCRIPT_DIR}/.bootstrap.conf"; do
+  if [[ -f "$old_conf" && ! -f "$INSTALL_CONFIG_PATH" ]]; then
+    cp -f "$old_conf" "$INSTALL_CONFIG_PATH"
+    log "Configuration migrée de ${old_conf} vers ${INSTALL_CONFIG_PATH}"
+    break
+  fi
+done
 
 # Ajoute/met à jour le cron pour l'audit hebdomadaire (lundi 7h00)
 CRON_AUDIT="0 7 * * 1 ${INSTALL_SCRIPT_PATH} --audit >/dev/null 2>&1"
 
 EXISTING_CRON=$(crontab -l 2>/dev/null || true)
-# Supprimer l'ancienne entrée audit si elle pointe ailleurs
+# Supprimer les anciennes entrées audit
 EXISTING_CRON=$(echo "$EXISTING_CRON" | grep -v "\-\-audit" || true)
 if ! echo "$EXISTING_CRON" | grep -q "${INSTALL_SCRIPT_PATH}.*audit"; then
   (echo "$EXISTING_CRON"; echo "# Audit de sécurité hebdomadaire (lundi 7h00)"; echo "$CRON_AUDIT") | crontab -
-  log "Cron audit hebdomadaire configuré (lundi 7h00) → ${INSTALL_SCRIPT_PATH}"
+  log "Cron audit configuré → ${INSTALL_SCRIPT_PATH} --audit"
 fi
 
 log "Terminé. Garde une session SSH ouverte tant que tu n'as pas validé la nouvelle connexion sur le port ${SSH_PORT}."
