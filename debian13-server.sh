@@ -3117,7 +3117,7 @@ if $INSTALL_POSTFIX_DKIM; then
   if command -v dig >/dev/null 2>&1 && [[ -f "$DKIM_PUB" ]]; then
     DKIM_DNS_RECORD="${DKIM_SELECTOR}._domainkey.${DKIM_DOMAIN}"
     DNS_KEY=$(dig +short TXT "$DKIM_DNS_RECORD" 2>/dev/null | tr -d '"\n ' | grep -oP 'p=\K[^;]+')
-    LOCAL_KEY=$(cat "$DKIM_PUB" 2>/dev/null | tr -d '"\n\t ' | grep -oP 'p=\K[^;)]+' | tr -d ' ')
+    LOCAL_KEY=$(cat "$DKIM_PUB" 2>/dev/null | tr -d '"\n\t ()' | grep -oP 'p=\K[^;]+' | head -1)
 
     if [[ -z "$DNS_KEY" ]]; then
       check_warn "DKIM DNS : enregistrement ${DKIM_DNS_RECORD} non trouvé"
