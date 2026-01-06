@@ -71,7 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.1.3"
+SCRIPT_VERSION="1.2.0"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -774,6 +774,8 @@ logpath = /var/log/apache2/*error.log
 [apache-badbots]
 enabled = true
 logpath = /var/log/apache2/*access.log
+bantime = 24h
+maxretry = 1
 
 [apache-noscript]
 enabled = true
@@ -782,7 +784,47 @@ logpath = /var/log/apache2/*error.log
 [apache-botsearch]
 enabled = true
 logpath = /var/log/apache2/*error.log
+bantime = 24h
+maxretry = 2
+
+[apache-vulnscan]
+enabled = true
+port = http,https
+logpath = /var/log/apache2/*access.log
+filter = apache-vulnscan
+bantime = 48h
+findtime = 1h
+maxretry = 3
+
+[apache-badagent]
+enabled = true
+port = http,https
+logpath = /var/log/apache2/*access.log
+filter = apache-badagent
+bantime = 24h
+findtime = 10m
+maxretry = 1
 EOF
+
+  # Filtre personnalisé pour scanners de vulnérabilités
+  cat >/etc/fail2ban/filter.d/apache-vulnscan.conf <<'FILTEREOF'
+[Definition]
+# Détection des scanners de vulnérabilités et tentatives d'exploitation
+failregex = ^<HOST> -.*"(GET|POST|HEAD).*(wp-login|wp-admin|wp-content|wp-includes|xmlrpc\.php|\.env|\.git|config\.php|phpinfo|phpmyadmin|pma|adminer|\.sql|\.bak|shell|eval\(|base64_decode|/etc/passwd|\.\.\/|%2e%2e|%00|<script|\.asp|\.aspx|cgi-bin|\.cgi|myadmin|mysql|setup\.php|install\.php).*".*$
+          ^<HOST> -.*"(GET|POST).*(union.*select|concat\(|information_schema|load_file|into.*outfile|benchmark\().*".*$
+          ^<HOST> -.*"(GET|POST|OPTIONS|PUT|DELETE).*" 400 .*$
+ignoreregex =
+FILTEREOF
+
+  # Filtre pour User-Agents malveillants
+  cat >/etc/fail2ban/filter.d/apache-badagent.conf <<'FILTEREOF'
+[Definition]
+# Détection des User-Agents de bots malveillants et scanners
+failregex = ^<HOST> -.*".*".*(nikto|sqlmap|nmap|masscan|zgrab|censys|shodan|nuclei|dirbuster|gobuster|wfuzz|ffuf|burp|acunetix|nessus|openvas|w3af|arachni|skipfish|wpscan|joomscan|droopescan|hydra|medusa).*$
+          ^<HOST> -.*".*".*(python-requests/|python-urllib|curl/|wget/|libwww-perl|lwp-trivial|Go-http-client|Java/|Ruby|Scrapy|HttpClient|okhttp).*$
+          ^<HOST> -.*"-" "-"$
+ignoreregex = ^<HOST> -.*".*".*(Googlebot|bingbot|Baiduspider|YandexBot|DuckDuckBot|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot).*$
+FILTEREOF
   systemctl enable --now fail2ban
   fail2ban-client reload
   log "Fail2ban actif (SSH + filtres Apache)."
@@ -3869,21 +3911,45 @@ HTMLEOF
 
   # Fonctions pour générer le HTML
   add_html_section() {
+    local title="$1"
+    local icon=""
+    # Icônes par section
+    case "$title" in
+      *Services*) icon="⚙" ;;
+      *SSH*) icon="🔐" ;;
+      *Web*) icon="🌐" ;;
+      *DNS*) icon="📡" ;;
+      *Protection*) icon="🛡" ;;
+      *Apache*) icon="📊" ;;
+      *menaces*) icon="🦠" ;;
+      *Emails*) icon="✉" ;;
+      *Ressources*) icon="💻" ;;
+      *) icon="📋" ;;
+    esac
     cat >> "$AUDIT_REPORT" <<SECTIONHTML
-              <h2 style="color:#142136; font-size:15px; font-weight:600; margin:25px 0 12px 0; padding-bottom:8px; border-bottom:2px solid #dc5c3b;">$1</h2>
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8f9fa; border-radius:8px; padding:5px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+                <tr>
+                  <td style="background:linear-gradient(90deg, #142136 0%, #1e3a5f 100%); padding:10px 15px; border-radius:8px 8px 0 0;">
+                    <span style="font-size:16px; margin-right:8px;">${icon}</span>
+                    <span style="color:#ffffff; font-size:14px; font-weight:600;">${title}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color:#f8f9fa; border-radius:0 0 8px 8px; border:1px solid #e8e8e8; border-top:none;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
 SECTIONHTML
   }
 
   add_html_check() {
     local status="$1" msg="$2"
-    local color="#6bdbdb" icon="•"
+    local color="#6bdbdb" icon="•" bg="#f8f9fa"
     case "$status" in
-      ok) color="#99c454"; icon="✓" ;;
-      warn) color="#ff9800"; icon="⚠" ;;
-      fail) color="#dc5c3b"; icon="✗" ;;
+      ok) color="#2e7d32"; icon="✓"; bg="#f1f8e9" ;;
+      warn) color="#e65100"; icon="⚠"; bg="#fff8e1" ;;
+      fail) color="#c62828"; icon="✗"; bg="#ffebee" ;;
+      info) color="#1565c0"; icon="ℹ"; bg="#e3f2fd" ;;
     esac
-    echo "<tr><td style='padding:6px 12px; font-size:13px;'><span style='color:${color}; font-weight:bold; margin-right:8px;'>${icon}</span>${msg}</td></tr>" >> "$AUDIT_REPORT"
+    echo "<tr><td style='padding:8px 15px; font-size:13px; background:${bg}; border-bottom:1px solid #eee;'><span style='color:${color}; font-weight:bold; font-size:14px; margin-right:10px;'>${icon}</span>${msg}</td></tr>" >> "$AUDIT_REPORT"
   }
 
   # Fonction pour ajouter une barre de progression
@@ -3937,7 +4003,7 @@ PROGHTML
   }
 
   close_section() {
-    echo "</table>" >> "$AUDIT_REPORT"
+    echo "</table></td></tr></table>" >> "$AUDIT_REPORT"
   }
 
   # Services
@@ -4063,6 +4129,87 @@ PROGHTML
     add_html_check ok "Fail2ban : ${F2B_TOTAL_BANS} jail(s), ${F2B_BANNED_IPS} IP(s) bannies"
   fi
   close_section
+
+  # Analyse des logs Apache
+  if $INSTALL_APACHE_PHP; then
+    add_html_section "Analyse Apache (24h)"
+
+    ACCESS_LOG="/var/log/apache2/access.log"
+    ERROR_LOG="/var/log/apache2/error.log"
+    TODAY_PATTERN=$(date '+%d/%b/%Y')
+    YESTERDAY_PATTERN=$(date -d "yesterday" '+%d/%b/%Y')
+
+    if [[ -f "$ACCESS_LOG" ]]; then
+      # Stats générales access.log
+      TOTAL_REQUESTS=$(grep -cE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null || echo "0")
+      TOTAL_404=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -c '" 404 ' || echo "0")
+      TOTAL_500=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -c '" 50[0-9] ' || echo "0")
+      UNIQUE_IPS=$(grep -E "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | awk '{print $1}' | sort -u | wc -l || echo "0")
+
+      add_stats_grid_open
+      add_stat_box "${TOTAL_REQUESTS}" "Requêtes" ""
+      add_stat_box "${UNIQUE_IPS}" "IPs uniques" "cyan"
+      add_stats_grid_close
+      add_stats_grid_open
+      add_stat_box "${TOTAL_404}" "Erreurs 404" "accent"
+      add_stat_box "${TOTAL_500}" "Erreurs 5xx" "accent"
+      add_stats_grid_close
+
+      # Détection URLs suspectes (scanners de vulnérabilités)
+      SUSPICIOUS_PATTERNS='(wp-login|wp-admin|wp-content|wp-includes|xmlrpc\.php|\.env|\.git|phpinfo|phpmyadmin|pma|adminer|\.sql|\.bak|\.zip|\.tar|\.rar|shell|eval\(|base64|union.*select|concat\(|etc/passwd|\.\.\/|%2e%2e|<script|\.asp|\.aspx|cgi-bin|\.cgi)'
+      SUSPICIOUS_HITS=$(grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -icE "$SUSPICIOUS_PATTERNS" || echo "0")
+
+      if [[ "$SUSPICIOUS_HITS" -gt 100 ]]; then
+        add_html_check fail "URLs suspectes : ${SUSPICIOUS_HITS} requêtes (scanners actifs !)"
+      elif [[ "$SUSPICIOUS_HITS" -gt 20 ]]; then
+        add_html_check warn "URLs suspectes : ${SUSPICIOUS_HITS} requêtes"
+      elif [[ "$SUSPICIOUS_HITS" -gt 0 ]]; then
+        add_html_check ok "URLs suspectes : ${SUSPICIOUS_HITS} requêtes (normal)"
+      else
+        add_html_check ok "Aucune URL suspecte détectée"
+      fi
+
+      # Top 5 URLs suspectes
+      if [[ "$SUSPICIOUS_HITS" -gt 0 ]]; then
+        TOP_SUSPICIOUS=$(grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | \
+          grep -iE "$SUSPICIOUS_PATTERNS" | \
+          awk '{print $7}' | sort | uniq -c | sort -rn | head -3 | \
+          awk '{printf "%s (%d), ", $2, $1}' | sed 's/, $//')
+        [[ -n "$TOP_SUSPICIOUS" ]] && add_html_check info "Top URLs ciblées : ${TOP_SUSPICIOUS}"
+      fi
+
+      # Bots malveillants (User-Agents suspects)
+      BAD_BOTS='(nikto|sqlmap|nmap|masscan|zgrab|census|shodan|curl/|wget/|python-requests|go-http|libwww|scanner|exploit|vulnerability|attack)'
+      BAD_BOT_HITS=$(grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | grep -icE "$BAD_BOTS" || echo "0")
+
+      if [[ "$BAD_BOT_HITS" -gt 50 ]]; then
+        add_html_check fail "Bots malveillants : ${BAD_BOT_HITS} requêtes"
+      elif [[ "$BAD_BOT_HITS" -gt 10 ]]; then
+        add_html_check warn "Bots malveillants : ${BAD_BOT_HITS} requêtes"
+      elif [[ "$BAD_BOT_HITS" -gt 0 ]]; then
+        add_html_check ok "Bots suspects : ${BAD_BOT_HITS} requêtes"
+      fi
+    else
+      add_html_check info "access.log non disponible"
+    fi
+
+    # Erreurs Apache (error.log)
+    if [[ -f "$ERROR_LOG" ]]; then
+      TODAY_ERR=$(date '+%a %b %d')
+      YESTERDAY_ERR=$(date -d "yesterday" '+%a %b %d')
+      PHP_ERRORS=$(grep -cE "^\[${TODAY_ERR}|^\[${YESTERDAY_ERR}" "$ERROR_LOG" 2>/dev/null | head -1 || echo "0")
+      PHP_FATAL=$(grep -E "^\[${TODAY_ERR}|^\[${YESTERDAY_ERR}" "$ERROR_LOG" 2>/dev/null | grep -ic "fatal\|critical" || echo "0")
+
+      if [[ "$PHP_FATAL" -gt 0 ]]; then
+        add_html_check fail "Erreurs fatales PHP : ${PHP_FATAL}"
+      elif [[ "$PHP_ERRORS" -gt 100 ]]; then
+        add_html_check warn "Erreurs Apache/PHP : ${PHP_ERRORS} (élevé)"
+      else
+        add_html_check ok "Erreurs Apache/PHP : ${PHP_ERRORS}"
+      fi
+    fi
+    close_section
+  fi
 
   # Bases de menaces (fraîcheur)
   add_html_section "Bases de menaces"
