@@ -3861,15 +3861,29 @@ HTMLEOF
   exit 0
 fi
 
-# ================================== CRON AUDIT HEBDO ==================================
-# Ajoute le cron pour l'audit hebdomadaire (lundi 7h00)
-SCRIPT_PATH="$(readlink -f "$0")"
-CRON_AUDIT="0 7 * * 1 ${SCRIPT_PATH} --audit >/dev/null 2>&1"
+# ================================== COPIE SCRIPT & CRON AUDIT =========================
+# Copier le script dans /root/scripts pour le cron (emplacement stable)
+INSTALL_SCRIPT_DIR="/root/scripts"
+INSTALL_SCRIPT_PATH="${INSTALL_SCRIPT_DIR}/install.sh"
+mkdir -p "$INSTALL_SCRIPT_DIR"
+
+# Copier le script si exécuté depuis ailleurs
+CURRENT_SCRIPT="$(readlink -f "$0")"
+if [[ "$CURRENT_SCRIPT" != "$INSTALL_SCRIPT_PATH" ]]; then
+  cp -f "$CURRENT_SCRIPT" "$INSTALL_SCRIPT_PATH"
+  chmod +x "$INSTALL_SCRIPT_PATH"
+  log "Script copié dans ${INSTALL_SCRIPT_PATH}"
+fi
+
+# Ajoute/met à jour le cron pour l'audit hebdomadaire (lundi 7h00)
+CRON_AUDIT="0 7 * * 1 ${INSTALL_SCRIPT_PATH} --audit >/dev/null 2>&1"
 
 EXISTING_CRON=$(crontab -l 2>/dev/null || true)
-if ! echo "$EXISTING_CRON" | grep -q "audit"; then
+# Supprimer l'ancienne entrée audit si elle pointe ailleurs
+EXISTING_CRON=$(echo "$EXISTING_CRON" | grep -v "\-\-audit" || true)
+if ! echo "$EXISTING_CRON" | grep -q "${INSTALL_SCRIPT_PATH}.*audit"; then
   (echo "$EXISTING_CRON"; echo "# Audit de sécurité hebdomadaire (lundi 7h00)"; echo "$CRON_AUDIT") | crontab -
-  log "Cron audit hebdomadaire ajouté (lundi 7h00)"
+  log "Cron audit hebdomadaire configuré (lundi 7h00) → ${INSTALL_SCRIPT_PATH}"
 fi
 
 log "Terminé. Garde une session SSH ouverte tant que tu n'as pas validé la nouvelle connexion sur le port ${SSH_PORT}."
