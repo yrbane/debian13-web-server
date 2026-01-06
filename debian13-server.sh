@@ -3116,7 +3116,7 @@ if $INSTALL_POSTFIX_DKIM; then
   # Comparaison clé locale vs DNS via dig
   if command -v dig >/dev/null 2>&1 && [[ -f "$DKIM_PUB" ]]; then
     DKIM_DNS_RECORD="${DKIM_SELECTOR}._domainkey.${DKIM_DOMAIN}"
-    DNS_KEY=$(dig +short TXT "$DKIM_DNS_RECORD" 2>/dev/null | tr -d '"\n ' | grep -oP 'p=\K[^;]+')
+    DNS_KEY=$(dig +short TXT "$DKIM_DNS_RECORD" @8.8.8.8 2>/dev/null | tr -d '"\n ' | grep -oP 'p=\K[^;]+')
     LOCAL_KEY=$(cat "$DKIM_PUB" 2>/dev/null | tr -d '"\n\t ()' | grep -oP 'p=\K[^;]+' | head -1)
 
     if [[ -z "$DNS_KEY" ]]; then
@@ -3482,9 +3482,9 @@ else
   BASE_DOMAIN="${HOSTNAME_FQDN#*.}"
 fi
 
-# Vérification enregistrement A
+# Vérification enregistrement A (utilise DNS public pour éviter cache local)
 if command -v dig >/dev/null 2>&1; then
-  DNS_A=$(dig +short A "$HOSTNAME_FQDN" 2>/dev/null | head -1)
+  DNS_A=$(dig +short A "$HOSTNAME_FQDN" @8.8.8.8 2>/dev/null | head -1)
   if [[ -n "$DNS_A" ]]; then
     if [[ "$DNS_A" == "$SERVER_IP" ]]; then
       check_ok "DNS A : ${HOSTNAME_FQDN} → ${DNS_A} (correspond à ce serveur)"
@@ -3496,7 +3496,7 @@ if command -v dig >/dev/null 2>&1; then
   fi
 
   # Vérification www
-  DNS_WWW=$(dig +short A "www.${HOSTNAME_FQDN}" 2>/dev/null | head -1)
+  DNS_WWW=$(dig +short A "www.${HOSTNAME_FQDN}" @8.8.8.8 2>/dev/null | head -1)
   if [[ -n "$DNS_WWW" ]]; then
     if [[ "$DNS_WWW" == "$SERVER_IP" || "$DNS_WWW" == "$DNS_A" ]]; then
       check_ok "DNS A : www.${HOSTNAME_FQDN} → ${DNS_WWW}"
@@ -3508,7 +3508,7 @@ if command -v dig >/dev/null 2>&1; then
   fi
 
   # MX records
-  DNS_MX=$(dig +short MX "$BASE_DOMAIN" 2>/dev/null | head -1)
+  DNS_MX=$(dig +short MX "$BASE_DOMAIN" @8.8.8.8 2>/dev/null | head -1)
   if [[ -n "$DNS_MX" ]]; then
     check_ok "DNS MX : ${BASE_DOMAIN} → ${DNS_MX}"
   else
@@ -3516,7 +3516,7 @@ if command -v dig >/dev/null 2>&1; then
   fi
 
   # SPF record
-  DNS_SPF=$(dig +short TXT "$BASE_DOMAIN" 2>/dev/null | grep -i "v=spf1" | head -1 || true)
+  DNS_SPF=$(dig +short TXT "$BASE_DOMAIN" @8.8.8.8 2>/dev/null | grep -i "v=spf1" | head -1 || true)
   if [[ -n "$DNS_SPF" ]]; then
     if echo "$DNS_SPF" | grep -qE "(include:|a |mx |ip4:)"; then
       check_ok "DNS SPF : ${DNS_SPF}"
@@ -3529,7 +3529,7 @@ if command -v dig >/dev/null 2>&1; then
 
   # DKIM record
   if [[ -n "${DKIM_SELECTOR:-}" && -n "${DKIM_DOMAIN:-}" ]]; then
-    DNS_DKIM=$(dig +short TXT "${DKIM_SELECTOR}._domainkey.${DKIM_DOMAIN}" 2>/dev/null | head -1)
+    DNS_DKIM=$(dig +short TXT "${DKIM_SELECTOR}._domainkey.${DKIM_DOMAIN}" @8.8.8.8 2>/dev/null | head -1)
     if [[ -n "$DNS_DKIM" ]]; then
       if echo "$DNS_DKIM" | grep -q "v=DKIM1"; then
         check_ok "DNS DKIM : ${DKIM_SELECTOR}._domainkey.${DKIM_DOMAIN} configuré"
@@ -3542,7 +3542,7 @@ if command -v dig >/dev/null 2>&1; then
   fi
 
   # DMARC record
-  DNS_DMARC=$(dig +short TXT "_dmarc.${BASE_DOMAIN}" 2>/dev/null | grep -i "v=DMARC1" | head -1 || true)
+  DNS_DMARC=$(dig +short TXT "_dmarc.${BASE_DOMAIN}" @8.8.8.8 2>/dev/null | grep -i "v=DMARC1" | head -1 || true)
   if [[ -n "$DNS_DMARC" ]]; then
     if echo "$DNS_DMARC" | grep -qE "p=(none|quarantine|reject)"; then
       DMARC_POLICY=$(echo "$DNS_DMARC" | grep -oE "p=(none|quarantine|reject)" | cut -d= -f2)
