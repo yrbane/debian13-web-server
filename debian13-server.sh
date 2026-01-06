@@ -2037,6 +2037,7 @@ fi
 alias grep='grep --color=auto'
 alias df='df -h'
 alias free='free -h'
+alias folder='du -h --max-depth=1 . | sort -hr'
 
 # --- Sudo helpers
 alias please='sudo !!'
