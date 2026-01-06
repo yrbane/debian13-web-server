@@ -1474,6 +1474,7 @@ if $INSTALL_SYMFONY; then
   systemctl restart php*-fpm 2>/dev/null || true
 
   # Dépendances pour Chrome Headless (génération PDF avec Browsershot/Puppeteer)
+  # + Ghostscript pour manipulation PDF
   apt-get install -y \
     libxcomposite1 \
     libatk-bridge2.0-0t64 \
@@ -1485,6 +1486,7 @@ if $INSTALL_SYMFONY; then
     libgbm1 \
     libxkbcommon0 \
     libasound2t64 \
+    ghostscript \
     | tee -a "$LOG_FILE"
 
   # Installer Symfony CLI
