@@ -71,7 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -3788,54 +3788,164 @@ printf "${CYAN}Fichier log :${RESET} %s\n\n" "${LOG_FILE}"
 if $AUDIT_MODE; then
   AUDIT_REPORT="/tmp/audit_report_$(date +%Y%m%d_%H%M%S).html"
 
-  # Génère le rapport HTML
-  cat > "$AUDIT_REPORT" <<HTMLEOF
+  # Génère le rapport HTML avec charte graphique Since & Co
+  # Couleurs: #dc5c3b (orange accent), #142136 (bleu foncé), #f2fafa (fond clair), #6bdbdb (cyan), #99c454 (vert)
+  cat > "$AUDIT_REPORT" <<'HTMLEOF'
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Audit de sécurité - ${HOSTNAME_FQDN}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit de sécurité</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
-    .container { max-width: 800px; margin: 0 auto; background: #16213e; border-radius: 10px; padding: 20px; }
-    h1 { color: #00d9ff; border-bottom: 2px solid #00d9ff; padding-bottom: 10px; }
-    h2 { color: #e94560; margin-top: 25px; }
-    .ok { color: #00ff88; }
-    .warn { color: #ffaa00; }
-    .fail { color: #ff4444; }
-    .info { color: #00d9ff; }
-    .check { padding: 5px 0; font-family: monospace; }
-    .summary { background: #0f3460; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; font-size: 1.2em; }
-    .section { margin: 15px 0; padding: 10px; background: #1a1a2e; border-radius: 5px; }
-    .timestamp { color: #888; font-size: 0.9em; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif; background: #f2fafa; color: #142136; padding: 0; line-height: 1.5; }
+    .email-container { max-width: 680px; margin: 0 auto; background: #ffffff; }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #142136 0%, #1e3a5f 100%); padding: 30px; text-align: center; }
+    .logo { width: 50px; height: 53px; margin-bottom: 15px; }
+    .header h1 { color: #ffffff; font-size: 24px; font-weight: 600; margin: 0; letter-spacing: 0.5px; }
+    .header .subtitle { color: #6bdbdb; font-size: 14px; margin-top: 8px; }
+
+    /* Summary cards */
+    .summary-row { display: flex; padding: 20px; gap: 15px; background: #f8fafa; }
+    .summary-card { flex: 1; padding: 20px; border-radius: 12px; text-align: center; }
+    .summary-card.ok { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-left: 4px solid #99c454; }
+    .summary-card.warn { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border-left: 4px solid #ff9800; }
+    .summary-card.fail { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); border-left: 4px solid #dc5c3b; }
+    .summary-card .count { font-size: 32px; font-weight: 600; }
+    .summary-card.ok .count { color: #2e7d32; }
+    .summary-card.warn .count { color: #e65100; }
+    .summary-card.fail .count { color: #dc5c3b; }
+    .summary-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-top: 5px; }
+
+    /* Content */
+    .content { padding: 25px; }
+
+    /* Sections */
+    h2 { color: #142136; font-size: 16px; font-weight: 600; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #dc5c3b; display: flex; align-items: center; gap: 8px; }
+    h2:first-child { margin-top: 0; }
+    .section { background: #f8fafa; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+
+    /* Checks */
+    .check { padding: 8px 12px; margin: 4px 0; border-radius: 6px; font-size: 14px; display: flex; align-items: center; gap: 10px; background: #ffffff; }
+    .check-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+    .check.ok .check-icon { background: #99c454; color: white; }
+    .check.warn .check-icon { background: #ff9800; color: white; }
+    .check.fail .check-icon { background: #dc5c3b; color: white; }
+    .check.info .check-icon { background: #6bdbdb; color: #142136; }
+
+    /* Progress bars */
+    .progress-container { margin: 15px 0; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+    .progress-bar { height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 5px; transition: width 0.3s; }
+    .progress-fill.green { background: linear-gradient(90deg, #99c454, #7cb342); }
+    .progress-fill.orange { background: linear-gradient(90deg, #ff9800, #f57c00); }
+    .progress-fill.red { background: linear-gradient(90deg, #dc5c3b, #c62828); }
+    .progress-fill.cyan { background: linear-gradient(90deg, #6bdbdb, #4db6ac); }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 15px 0; }
+    .stat-box { background: #ffffff; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #e8e8e8; }
+    .stat-value { font-size: 24px; font-weight: 600; color: #142136; }
+    .stat-value.accent { color: #dc5c3b; }
+    .stat-value.cyan { color: #6bdbdb; }
+    .stat-value.green { color: #99c454; }
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-top: 4px; }
+
+    /* Footer */
+    .footer { background: #142136; color: #ffffff; padding: 25px; text-align: center; }
+    .footer p { font-size: 12px; color: #a0a0a0; margin: 5px 0; }
+    .footer .brand { color: #dc5c3b; font-weight: 500; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .summary-row { flex-direction: column; }
+      .stats-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔒 Rapport d'audit de sécurité</h1>
-    <p class="timestamp">Serveur : <strong>${HOSTNAME_FQDN}</strong> | Date : $(date '+%d/%m/%Y %H:%M') | Script v${SCRIPT_VERSION}</p>
-
-    <div class="summary">
-      <span class="ok">✔ ${CHECKS_OK} OK</span> &nbsp;|&nbsp;
-      <span class="warn">⚠ ${CHECKS_WARN} Avertissements</span> &nbsp;|&nbsp;
-      <span class="fail">✖ ${CHECKS_FAIL} Erreurs</span>
-    </div>
+  <div class="email-container">
+    <!-- Header avec logo -->
+    <div class="header">
+      <svg class="logo" viewBox="0 0 132.4308 140.007" xmlns="http://www.w3.org/2000/svg">
+        <path d="M101.7502,1.3316l-48.8765,27.3603c-3.2972,1.8465-3.2817,6.5428-.031,8.4702,44.6552,26.4603,32.8241,60.6319,16.3054,83.6659-3.2077,4.4691,2.3146,9.9639,6.794,6.7734C111.1755,102.5178,158.7149,55.2865,114.7068,3.5894c-3.1922-3.7498-8.6578-4.6636-12.9565-2.2578" fill="#dc5c3b"/>
+        <path d="M30.9403,43.8131L2.5845,59.6875c-3.4254,1.9158-3.4308,6.7412-.106,8.8223,32.2665,20.1769,24.438,45.6841,12.1866,63.5337-3.0965,4.5145,2.2519,10.0678,6.8868,7.1545,32.164-20.2218,75.2602-58.3416,20.876-94.862-3.4308-2.3022-7.8824-2.5412-11.4875-.523" fill="#dc5c3b"/>
+      </svg>
+      <h1>Audit de sécurité</h1>
 HTMLEOF
 
-  # Fonction pour ajouter une section
+  # Ajouter les infos dynamiques dans le header
+  cat >> "$AUDIT_REPORT" <<HTMLEOF
+      <div class="subtitle">${HOSTNAME_FQDN} • $(date '+%d/%m/%Y %H:%M') • v${SCRIPT_VERSION}</div>
+    </div>
+
+    <!-- Résumé -->
+    <div class="summary-row">
+      <div class="summary-card ok">
+        <div class="count">${CHECKS_OK}</div>
+        <div class="label">OK</div>
+      </div>
+      <div class="summary-card warn">
+        <div class="count">${CHECKS_WARN}</div>
+        <div class="label">Avertissements</div>
+      </div>
+      <div class="summary-card fail">
+        <div class="count">${CHECKS_FAIL}</div>
+        <div class="label">Erreurs</div>
+      </div>
+    </div>
+
+    <div class="content">
+HTMLEOF
+
+  # Fonctions pour générer le HTML
   add_html_section() {
     echo "<h2>$1</h2><div class='section'>" >> "$AUDIT_REPORT"
   }
 
   add_html_check() {
     local status="$1" msg="$2"
-    local class="info" icon="[-]"
+    local class="info" icon="i"
     case "$status" in
-      ok) class="ok"; icon="✔" ;;
-      warn) class="warn"; icon="⚠" ;;
-      fail) class="fail"; icon="✖" ;;
+      ok) class="ok"; icon="✓" ;;
+      warn) class="warn"; icon="!" ;;
+      fail) class="fail"; icon="✕" ;;
     esac
-    echo "<div class='check'><span class='${class}'>${icon}</span> ${msg}</div>" >> "$AUDIT_REPORT"
+    echo "<div class='check ${class}'><span class='check-icon'>${icon}</span> ${msg}</div>" >> "$AUDIT_REPORT"
+  }
+
+  # Fonction pour ajouter une barre de progression
+  add_progress_bar() {
+    local label="$1" value="$2" max="${3:-100}" color="${4:-green}"
+    local pct=$((value * 100 / max))
+    [[ "$pct" -gt 100 ]] && pct=100
+    cat >> "$AUDIT_REPORT" <<PROGHTML
+<div class="progress-container">
+  <div class="progress-label"><span>${label}</span><span>${value}%</span></div>
+  <div class="progress-bar"><div class="progress-fill ${color}" style="width: ${pct}%;"></div></div>
+</div>
+PROGHTML
+  }
+
+  # Fonction pour ajouter une grille de stats
+  add_stats_grid_open() {
+    echo "<div class='stats-grid'>" >> "$AUDIT_REPORT"
+  }
+
+  add_stat_box() {
+    local value="$1" label="$2" color="${3:-}"
+    local color_class=""
+    [[ -n "$color" ]] && color_class=" $color"
+    echo "<div class='stat-box'><div class='stat-value${color_class}'>${value}</div><div class='stat-label'>${label}</div></div>" >> "$AUDIT_REPORT"
+  }
+
+  add_stats_grid_close() {
+    echo "</div>" >> "$AUDIT_REPORT"
   }
 
   close_section() {
@@ -3845,7 +3955,7 @@ HTMLEOF
   # Services
   add_html_section "Services"
   systemctl is-active --quiet sshd && add_html_check ok "SSH : actif" || add_html_check fail "SSH : inactif"
-  systemctl is-active --quiet ufw && add_html_check ok "UFW : actif" || add_html_check warn "UFW : inactif"
+  ufw status | grep -qiE "(Status|État).*acti" && add_html_check ok "UFW : actif" || add_html_check warn "UFW : inactif"
   systemctl is-active --quiet fail2ban && add_html_check ok "Fail2ban : actif" || add_html_check warn "Fail2ban : inactif"
   $INSTALL_APACHE_PHP && { systemctl is-active --quiet apache2 && add_html_check ok "Apache : actif" || add_html_check fail "Apache : inactif"; }
   $INSTALL_MARIADB && { systemctl is-active --quiet mariadb && add_html_check ok "MariaDB : actif" || add_html_check fail "MariaDB : inactif"; }
@@ -3883,10 +3993,10 @@ HTMLEOF
       DAYS_LEFT_HTML=$(( (CERT_EXP_EPOCH_HTML - $(date +%s)) / 86400 ))
       if [[ "$DAYS_LEFT_HTML" -gt 30 ]]; then
         add_html_check ok "SSL : expire dans ${DAYS_LEFT_HTML} jours"
-      elif [[ "$DAYS_LEFT_HTML" -gt 7 ]]; then
+      elif [[ "$DAYS_LEFT_HTML" -gt 10 ]]; then
         add_html_check warn "SSL : expire dans ${DAYS_LEFT_HTML} jours"
       else
-        add_html_check fail "SSL : expire dans ${DAYS_LEFT_HTML} jours !"
+        add_html_check fail "SSL : expire dans ${DAYS_LEFT_HTML} jours - RENOUVELER IMMÉDIATEMENT !"
       fi
     fi
     close_section
@@ -3904,6 +4014,66 @@ HTMLEOF
     add_html_check warn "DMARC : non configuré"
   fi
   [[ -n "${DNS_PTR:-}" ]] && add_html_check ok "PTR : ${DNS_PTR}" || add_html_check warn "PTR : non configuré"
+  close_section
+
+  # Protection GeoIP & ModSecurity
+  add_html_section "Protection avancée"
+
+  # GeoIP - Pays bloqués
+  if $GEOIP_BLOCK; then
+    if ipset list geoip_blocked >/dev/null 2>&1; then
+      GEOIP_RANGES_HTML=$(ipset list geoip_blocked 2>/dev/null | grep -c '^[0-9]' || echo "0")
+      add_html_check ok "GeoIP : ${GEOIP_RANGES_HTML} plages IP bloquées (103 pays)"
+      add_stats_grid_open
+      add_stat_box "${GEOIP_RANGES_HTML}" "Plages bloquées" "accent"
+      add_stat_box "103" "Pays bloqués" "cyan"
+      add_stats_grid_close
+    else
+      add_html_check fail "GeoIP : ipset geoip_blocked non trouvé"
+    fi
+  else
+    add_html_check info "GeoIP : non activé"
+  fi
+
+  # ModSecurity stats
+  if $INSTALL_MODSEC_CRS && $INSTALL_APACHE_PHP; then
+    MODSEC_LOG="/var/log/apache2/modsec_audit.log"
+    if [[ -f "$MODSEC_LOG" ]]; then
+      # Compter les événements des dernières 24h
+      YESTERDAY=$(date -d "yesterday" '+%d/%b/%Y')
+      TODAY=$(date '+%d/%b/%Y')
+      MODSEC_EVENTS_24H=$(grep -cE "\[${TODAY}|\[${YESTERDAY}" "$MODSEC_LOG" 2>/dev/null || echo "0")
+      MODSEC_TOTAL=$(wc -l < "$MODSEC_LOG" 2>/dev/null || echo "0")
+
+      # Mode (DetectionOnly ou On)
+      if grep -q "SecRuleEngine On" /etc/modsecurity/modsecurity.conf 2>/dev/null; then
+        MODSEC_MODE="Blocage actif"
+        add_html_check ok "ModSecurity : mode blocage actif"
+      else
+        MODSEC_MODE="Détection seule"
+        add_html_check warn "ModSecurity : mode détection (non bloquant)"
+      fi
+
+      add_stats_grid_open
+      add_stat_box "${MODSEC_EVENTS_24H}" "Événements 24h" "accent"
+      add_stat_box "${MODSEC_TOTAL}" "Total lignes log" ""
+      add_stats_grid_close
+    else
+      add_html_check info "ModSecurity : pas de logs encore"
+    fi
+  fi
+
+  # Fail2ban bans actifs
+  if systemctl is-active --quiet fail2ban; then
+    F2B_TOTAL_BANS=$(fail2ban-client status 2>/dev/null | grep -oP 'Number of jail:\s+\K\d+' || echo "0")
+    # Compter les IPs actuellement bannies
+    F2B_BANNED_IPS=0
+    for jail in $(fail2ban-client status 2>/dev/null | grep "Jail list" | sed 's/.*:\s*//' | tr ',' ' '); do
+      banned=$(fail2ban-client status "$jail" 2>/dev/null | grep "Currently banned" | awk '{print $NF}')
+      F2B_BANNED_IPS=$((F2B_BANNED_IPS + ${banned:-0}))
+    done
+    add_html_check ok "Fail2ban : ${F2B_TOTAL_BANS} jail(s), ${F2B_BANNED_IPS} IP(s) bannies"
+  fi
   close_section
 
   # Bases de menaces (fraîcheur)
@@ -4003,14 +4173,39 @@ HTMLEOF
     close_section
   fi
 
-  # Ressources
+  # Ressources système avec graphiques
   add_html_section "Ressources système"
   DISK_USAGE=$(df -h / | awk 'NR==2 {print $5}' | tr -d '%')
+  DISK_TOTAL=$(df -h / | awk 'NR==2 {print $2}')
+  DISK_USED=$(df -h / | awk 'NR==2 {print $3}')
   MEM_USED_PCT=$(free | awk '/^Mem:/ {printf "%.0f", $3/$2*100}')
+  MEM_TOTAL=$(free -h | awk '/^Mem:/ {print $2}')
+  MEM_USED=$(free -h | awk '/^Mem:/ {print $3}')
   LOAD_1=$(cat /proc/loadavg | awk '{print $1}')
+  CPU_CORES=$(nproc)
+
+  # Barres de progression pour disque et RAM
+  DISK_COLOR="green"
+  [[ "$DISK_USAGE" -gt 70 ]] && DISK_COLOR="orange"
+  [[ "$DISK_USAGE" -gt 90 ]] && DISK_COLOR="red"
+  add_progress_bar "Disque (${DISK_USED} / ${DISK_TOTAL})" "$DISK_USAGE" 100 "$DISK_COLOR"
+
+  MEM_COLOR="green"
+  [[ "$MEM_USED_PCT" -gt 70 ]] && MEM_COLOR="orange"
+  [[ "$MEM_USED_PCT" -gt 90 ]] && MEM_COLOR="red"
+  add_progress_bar "RAM (${MEM_USED} / ${MEM_TOTAL})" "$MEM_USED_PCT" 100 "$MEM_COLOR"
+
+  # Stats grid pour load et uptime
+  LOAD_PCT=$(echo "$LOAD_1 $CPU_CORES" | awk '{printf "%.0f", ($1/$2)*100}')
+  LOAD_COLOR="green"
+  [[ "$LOAD_PCT" -gt 70 ]] && LOAD_COLOR="orange"
+  [[ "$LOAD_PCT" -gt 100 ]] && LOAD_COLOR="red"
+  add_progress_bar "Load (${LOAD_1} sur ${CPU_CORES} cores)" "$LOAD_PCT" 100 "$LOAD_COLOR"
+
+  # Vérifications complémentaires
   [[ "$DISK_USAGE" -lt 80 ]] && add_html_check ok "Disque : ${DISK_USAGE}% utilisé" || add_html_check warn "Disque : ${DISK_USAGE}% utilisé"
   [[ "$MEM_USED_PCT" -lt 80 ]] && add_html_check ok "RAM : ${MEM_USED_PCT}% utilisée" || add_html_check warn "RAM : ${MEM_USED_PCT}% utilisée"
-  add_html_check ok "Load : ${LOAD_1}"
+  add_html_check ok "Load : ${LOAD_1} (${CPU_CORES} cores)"
 
   # Inodes
   INODE_USAGE_HTML=$(df -i / | awk 'NR==2 {print $5}' | tr -d '%')
@@ -4030,13 +4225,20 @@ HTMLEOF
   add_html_check ok "Uptime : $(uptime -p | sed 's/up //')"
   close_section
 
-  # Ferme le HTML
-  cat >> "$AUDIT_REPORT" <<HTMLEOF
-    <p class="timestamp" style="margin-top: 30px; text-align: center;">
-      Généré automatiquement par le script d'audit<br>
-      Prochain audit : lundi prochain à 7h00
-    </p>
-  </div>
+  # Ferme le contenu et ajoute le footer Since & Co
+  cat >> "$AUDIT_REPORT" <<'HTMLEOF'
+    </div><!-- /content -->
+
+    <!-- Footer Since & Co -->
+    <div class="footer">
+      <svg width="35" height="37" viewBox="0 0 132.4308 140.007" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 10px;">
+        <path d="M101.7502,1.3316l-48.8765,27.3603c-3.2972,1.8465-3.2817,6.5428-.031,8.4702,44.6552,26.4603,32.8241,60.6319,16.3054,83.6659-3.2077,4.4691,2.3146,9.9639,6.794,6.7734C111.1755,102.5178,158.7149,55.2865,114.7068,3.5894c-3.1922-3.7498-8.6578-4.6636-12.9565-2.2578" fill="#dc5c3b"/>
+        <path d="M30.9403,43.8131L2.5845,59.6875c-3.4254,1.9158-3.4308,6.7412-.106,8.8223,32.2665,20.1769,24.438,45.6841,12.1866,63.5337-3.0965,4.5145,2.2519,10.0678,6.8868,7.1545,32.164-20.2218,75.2602-58.3416,20.876-94.862-3.4308-2.3022-7.8824-2.5412-11.4875-.523" fill="#dc5c3b"/>
+      </svg>
+      <p>Audit généré par <span class="brand">Since & Co</span></p>
+      <p>Prochain audit prévu : lundi à 7h00</p>
+    </div>
+  </div><!-- /email-container -->
 </body>
 </html>
 HTMLEOF
