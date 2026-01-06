@@ -71,6 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
+SCRIPT_VERSION="1.0.0"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -2513,7 +2514,7 @@ fi # Fin du bloc if ! $AUDIT_MODE (skip installation)
 
 # ================================== VÉRIFICATIONS =====================================
 # ---------------------------------- 17) Vérifications ---------------------------------
-section "Vérifications de l'installation et de la sécurité"
+section "Vérifications de l'installation et de la sécurité (v${SCRIPT_VERSION})"
 
 # Compteurs
 CHECKS_OK=0
@@ -3812,7 +3813,7 @@ if $AUDIT_MODE; then
 <body>
   <div class="container">
     <h1>🔒 Rapport d'audit de sécurité</h1>
-    <p class="timestamp">Serveur : <strong>${HOSTNAME_FQDN}</strong> | Date : $(date '+%d/%m/%Y %H:%M')</p>
+    <p class="timestamp">Serveur : <strong>${HOSTNAME_FQDN}</strong> | Date : $(date '+%d/%m/%Y %H:%M') | Script v${SCRIPT_VERSION}</p>
 
     <div class="summary">
       <span class="ok">✔ ${CHECKS_OK} OK</span> &nbsp;|&nbsp;
@@ -4041,7 +4042,7 @@ HTMLEOF
 HTMLEOF
 
   # Envoie l'email
-  SUBJECT="[Audit] ${HOSTNAME_FQDN} - ${CHECKS_OK} OK / ${CHECKS_WARN} warn / ${CHECKS_FAIL} err"
+  SUBJECT="[Audit v${SCRIPT_VERSION}] ${HOSTNAME_FQDN} - ${CHECKS_OK} OK / ${CHECKS_WARN} warn / ${CHECKS_FAIL} err"
   (
     echo "To: ${EMAIL_FOR_CERTBOT}"
     echo "Subject: ${SUBJECT}"
