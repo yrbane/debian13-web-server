@@ -1473,6 +1473,20 @@ if $INSTALL_SYMFONY; then
   # Redémarrer PHP-FPM pour charger les nouvelles extensions
   systemctl restart php*-fpm 2>/dev/null || true
 
+  # Dépendances pour Chrome Headless (génération PDF avec Browsershot/Puppeteer)
+  apt-get install -y \
+    libxcomposite1 \
+    libatk-bridge2.0-0t64 \
+    libatk1.0-0t64 \
+    libnss3 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libxkbcommon0 \
+    libasound2t64 \
+    | tee -a "$LOG_FILE"
+
   # Installer Symfony CLI
   curl -1sLf 'https://dl.cloudsmith.io/public/symfony/stable/setup.deb.sh' | sudo bash
   apt-get install -y symfony-cli | tee -a "$LOG_FILE"
