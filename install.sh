@@ -1631,6 +1631,11 @@ if [ -z "$SSH_CONNECTION" ] || [ -z "$PS1" ]; then
     return 2>/dev/null || exit 0
 fi
 
+# Vérifier que sendmail est disponible
+if ! command -v sendmail &>/dev/null; then
+    return 2>/dev/null || exit 0
+fi
+
 MAILTO="__EMAIL__"
 IP=$(echo $SSH_CONNECTION | awk '{print $1}')
 USER=$(whoami)
@@ -2309,7 +2314,10 @@ fi
 command -v composer >/dev/null 2>&1 && eval "$(composer completion bash 2>/dev/null)" || true
 command -v symfony  >/dev/null 2>&1 && eval "$(symfony completion bash 2>/dev/null)" || true
 
-fortune -a  |  cowsay  -T U\  -p | lolcat
+# Message de bienvenue coloré (si les outils sont installés)
+if command -v fortune &>/dev/null && command -v cowsay &>/dev/null && command -v lolcat &>/dev/null; then
+  fortune -a | cowsay -T 'U ' -p | lolcat
+fi
 
 neofetch_banner() {
   command -v neofetch >/dev/null 2>&1 || return
