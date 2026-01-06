@@ -225,6 +225,7 @@ TIMEZONE="${TIMEZONE}"
 INSTALL_LOCALES=${INSTALL_LOCALES}
 INSTALL_SSH_HARDEN=${INSTALL_SSH_HARDEN}
 INSTALL_UFW=${INSTALL_UFW}
+GEOIP_BLOCK=${GEOIP_BLOCK}
 INSTALL_FAIL2BAN=${INSTALL_FAIL2BAN}
 INSTALL_APACHE_PHP=${INSTALL_APACHE_PHP}
 PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS}
@@ -344,6 +345,7 @@ show_config() {
   $INSTALL_LOCALES && comps+="locales "
   $INSTALL_SSH_HARDEN && comps+="ssh "
   $INSTALL_UFW && comps+="ufw "
+  $GEOIP_BLOCK && comps+="geoip-block "
   $INSTALL_FAIL2BAN && comps+="fail2ban "
   $INSTALL_APACHE_PHP && comps+="apache/php "
   $INSTALL_APACHE_PHP && ! $PHP_DISABLE_FUNCTIONS && comps+="(php-exec-ok) "
@@ -382,6 +384,10 @@ ask_all_questions() {
   prompt_yes_no "Durcir SSH (clé uniquement) et déplacer le port ?" "y" || INSTALL_SSH_HARDEN=false
   INSTALL_UFW=true
   prompt_yes_no "Configurer UFW (pare-feu) ?" "y" || INSTALL_UFW=false
+  GEOIP_BLOCK=false
+  if $INSTALL_UFW; then
+    prompt_yes_no "Bloquer les connexions depuis Asie/Afrique (103 pays via GeoIP) ?" "n" && GEOIP_BLOCK=true
+  fi
   INSTALL_FAIL2BAN=true
   prompt_yes_no "Installer Fail2ban ?" "y" || INSTALL_FAIL2BAN=false
   INSTALL_APACHE_PHP=true
@@ -460,6 +466,7 @@ if $AUDIT_MODE; then
     PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
     TRUSTED_IPS=${TRUSTED_IPS:-}
     INSTALL_SYMFONY=${INSTALL_SYMFONY:-false}
+    GEOIP_BLOCK=${GEOIP_BLOCK:-false}
   else
     die "Mode audit : fichier de configuration ${CONFIG_FILE} requis. Exécutez d'abord le script normalement."
   fi
@@ -495,6 +502,7 @@ else
     INSTALL_BASHRC_GLOBAL=${INSTALL_BASHRC_GLOBAL:-true}
     PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
     INSTALL_SYMFONY=${INSTALL_SYMFONY:-false}
+    GEOIP_BLOCK=${GEOIP_BLOCK:-false}
     section "Configuration existante chargée (mode pipe)"
     show_config
   else
@@ -509,6 +517,7 @@ else
     INSTALL_LOCALES=true
     INSTALL_SSH_HARDEN=true
     INSTALL_UFW=true
+    GEOIP_BLOCK=false
     INSTALL_FAIL2BAN=true
     INSTALL_APACHE_PHP=true
     PHP_DISABLE_FUNCTIONS=true
@@ -658,6 +667,72 @@ if $INSTALL_UFW; then
   yes | ufw enable || true
   ufw status verbose
   log "UFW activé. Ports ouverts: ${SSH_PORT}/80/443."
+fi
+
+# ---------------------------------- 3b) GeoIP Block ------------------------------------
+if $GEOIP_BLOCK && $INSTALL_UFW; then
+  section "Blocage GeoIP (103 pays : Asie + Afrique)"
+  apt-get install -y ipset | tee -a "$LOG_FILE"
+
+  # Créer l'ipset s'il n'existe pas
+  ipset list geoip_blocked >/dev/null 2>&1 || ipset create geoip_blocked hash:net
+
+  # Script de mise à jour des IPs bloquées
+  cat > /usr/local/bin/geoip-update.sh << 'GEOIPSCRIPT'
+#!/bin/bash
+# Mise à jour des IPs bloquées par pays (Asie + Afrique)
+# Pour débloquer un pays: retirer son code de COUNTRIES et relancer le script
+# Codes pays: https://www.ipdeny.com/ipblocks/data/countries/
+
+# AFRIQUE (54 pays)
+AFRICA="dz ao bj bw bf bi cv cm cf td km cg cd ci dj eg gq er sz et ga gm gh gn gw ke ls lr ly mg mw ml mr mu ma mz na ne ng rw st sn sc sl so za ss sd tz tg tn ug zm zw"
+
+# ASIE (49 pays) - inclut Russie et Moyen-Orient
+ASIA="af am az bh bd bt bn kh cn ge in id ir iq il jo kz kw kg la lb my mv mn mm np kp om pk ps ph qa ru sa sg kr lk sy tw tj th tl tr tm ae uz vn ye"
+
+COUNTRIES="$AFRICA $ASIA"
+
+# Créer un ipset temporaire
+ipset create geoip_blocked_new hash:net -exist
+
+for country in $COUNTRIES; do
+  url="https://www.ipdeny.com/ipblocks/data/countries/${country}.zone"
+  curl -s "$url" 2>/dev/null | while read -r ip; do
+    [[ -n "$ip" ]] && ipset add geoip_blocked_new "$ip" 2>/dev/null
+  done
+done
+
+# Remplacer l'ancien set par le nouveau
+ipset swap geoip_blocked_new geoip_blocked 2>/dev/null || \
+  ipset rename geoip_blocked_new geoip_blocked 2>/dev/null
+ipset destroy geoip_blocked_new 2>/dev/null
+
+echo "$(date): GeoIP updated - $(ipset list geoip_blocked | grep -c '^[0-9]') ranges blocked"
+GEOIPSCRIPT
+  chmod +x /usr/local/bin/geoip-update.sh
+
+  # Exécuter la première mise à jour
+  log "Téléchargement des plages IP à bloquer (peut prendre quelques minutes)..."
+  /usr/local/bin/geoip-update.sh | tee -a "$LOG_FILE"
+
+  # Ajouter la règle UFW (dans before.rules)
+  if ! grep -q "geoip_blocked" /etc/ufw/before.rules; then
+    sed -i '/^# End required lines/a \
+# GeoIP blocking\
+-A ufw-before-input -m set --match-set geoip_blocked src -j DROP' /etc/ufw/before.rules
+  fi
+
+  # Cron hebdomadaire pour mise à jour
+  cat > /etc/cron.weekly/geoip-update << 'CRONEOF'
+#!/bin/bash
+/usr/local/bin/geoip-update.sh >> /var/log/geoip-update.log 2>&1
+ufw reload
+CRONEOF
+  chmod +x /etc/cron.weekly/geoip-update
+
+  # Recharger UFW
+  ufw reload
+  log "Blocage GeoIP activé. $(ipset list geoip_blocked | grep -c '^[0-9]') plages bloquées."
 fi
 
 # ---------------------------------- 4) Fail2ban ---------------------------------------
@@ -2455,6 +2530,16 @@ if $INSTALL_UFW; then
   fi
 fi
 
+# GeoIP Block
+if $GEOIP_BLOCK; then
+  if ipset list geoip_blocked >/dev/null 2>&1; then
+    GEOIP_COUNT=$(ipset list geoip_blocked 2>/dev/null | grep -c '^[0-9]' || echo "0")
+    check_ok "GeoIP : ${GEOIP_COUNT} plages bloquées"
+  else
+    check_fail "GeoIP : ipset geoip_blocked non trouvé"
+  fi
+fi
+
 # Fail2ban
 if $INSTALL_FAIL2BAN; then
   if systemctl is-active --quiet fail2ban; then
@@ -3519,6 +3604,24 @@ echo ""
 print_title "Fail2ban"
 print_cmd "fail2ban-client status sshd"
 echo ""
+
+if $GEOIP_BLOCK; then
+  print_title "Blocage GeoIP (Asie + Afrique)"
+  print_note "103 pays bloqués via ipset + UFW"
+  print_cmd "ipset list geoip_blocked | wc -l    # Nombre de plages bloquées"
+  print_note "Débloquer un pays (ex: Japon 'jp') :"
+  print_cmd "nano /usr/local/bin/geoip-update.sh  # Retirer 'jp' de ASIA"
+  print_cmd "/usr/local/bin/geoip-update.sh       # Recharger les plages"
+  print_cmd "ufw reload"
+  print_note "Débloquer une IP spécifique temporairement :"
+  print_cmd "ipset del geoip_blocked <IP>"
+  print_note "Débloquer une IP définitivement (whitelist UFW) :"
+  print_cmd "ufw insert 1 allow from <IP>"
+  print_note "Voir les connexions bloquées :"
+  print_cmd "dmesg | grep -i 'blocked' | tail -20"
+  print_note "Mise à jour auto: /etc/cron.weekly/geoip-update"
+  echo ""
+fi
 
 print_title "MariaDB"
 print_note "Hardening de base effectué (test DB supprimée, comptes vides nettoyés)"
