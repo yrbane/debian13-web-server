@@ -711,7 +711,13 @@ if $INSTALL_APACHE_PHP; then
   systemctl enable --now apache2
   apt-get install -y php php-cli php-fpm php-mysql php-curl php-xml php-gd php-mbstring php-zip php-intl php-opcache libapache2-mod-php | tee -a "$LOG_FILE"
   apt-get install -y libapache2-mod-security2 libapache2-mod-evasive | tee -a "$LOG_FILE"
-  a2enmod headers rewrite ssl security2
+
+  # Activer les modules Apache utiles
+  a2enmod headers rewrite ssl security2  # Sécurité & réécriture
+  a2enmod expires deflate                 # Performance (cache, compression)
+  a2enmod proxy proxy_http proxy_wstunnel # Reverse proxy & WebSocket
+  a2enmod socache_shmcb                   # Cache SSL sessions
+  a2enmod vhost_alias                     # Virtual hosts
   cat >/etc/apache2/conf-available/security-headers.conf <<'EOF'
 <IfModule mod_headers.c>
   Header always set X-Frame-Options "SAMEORIGIN"
