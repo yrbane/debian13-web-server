@@ -71,7 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.2.3"
+SCRIPT_VERSION="1.2.5"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -4138,8 +4138,9 @@ PROGHTML
     ACCESS_LOG="/var/log/apache2/access.log"
     ERROR_LOG="/var/log/apache2/error.log"
     # Forcer locale C pour avoir Jan/Feb/Mar (format Apache) au lieu de janv./févr./mars
-    TODAY_PATTERN=$(LC_TIME=C date '+%d/%b/%Y')
-    YESTERDAY_PATTERN=$(LC_TIME=C date -d "yesterday" '+%d/%b/%Y')
+    # LC_ALL=C est plus forcé que LC_TIME=C et fonctionne même sur systèmes stricts
+    TODAY_PATTERN=$(LC_ALL=C date '+%d/%b/%Y')
+    YESTERDAY_PATTERN=$(LC_ALL=C date -d "yesterday" '+%d/%b/%Y')
 
     if [[ -f "$ACCESS_LOG" ]]; then
       # Stats générales access.log (head -1 pour éviter les multi-lignes)
@@ -4179,10 +4180,10 @@ PROGHTML
 
       # Top 5 URLs suspectes
       if [[ "$SUSPICIOUS_HITS" -gt 0 ]]; then
-        TOP_SUSPICIOUS=$(grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" 2>/dev/null | \
+        TOP_SUSPICIOUS=$( (grep -iE "\[${TODAY_PATTERN}|\[${YESTERDAY_PATTERN}" "$ACCESS_LOG" | \
           grep -iE "$SUSPICIOUS_PATTERNS" | \
           awk '{print $7}' | sort | uniq -c | sort -rn | head -3 | \
-          awk '{printf "%s (%d), ", $2, $1}' | sed 's/, $//')
+          awk '{printf "%s (%s), ", $2, $1}' | sed 's/, $//') 2>/dev/null || true)
         [[ -n "$TOP_SUSPICIOUS" ]] && add_html_check info "Top URLs ciblées : ${TOP_SUSPICIOUS}"
       fi
 
@@ -4205,8 +4206,8 @@ PROGHTML
     # Erreurs Apache (error.log)
     if [[ -f "$ERROR_LOG" ]]; then
       # Forcer locale C pour avoir Mon Jan 06 au lieu de lun. janv. 06
-      TODAY_ERR=$(LC_TIME=C date '+%a %b %d')
-      YESTERDAY_ERR=$(LC_TIME=C date -d "yesterday" '+%a %b %d')
+      TODAY_ERR=$(LC_ALL=C date '+%a %b %d')
+      YESTERDAY_ERR=$(LC_ALL=C date -d "yesterday" '+%a %b %d')
       PHP_ERRORS=$(grep -cE "^\[${TODAY_ERR}|^\[${YESTERDAY_ERR}" "$ERROR_LOG" 2>/dev/null | head -1 || echo "0")
       PHP_ERRORS=${PHP_ERRORS//[^0-9]/}; [[ -z "$PHP_ERRORS" ]] && PHP_ERRORS=0
       PHP_FATAL=$(grep -E "^\[${TODAY_ERR}|^\[${YESTERDAY_ERR}" "$ERROR_LOG" 2>/dev/null | grep -ic "fatal\|critical" | head -1 || echo "0")
