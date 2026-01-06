@@ -2271,10 +2271,10 @@ _prompt_build() {
 
   if [[ $EUID -eq 0 ]]; then
     userpart="${root_fg}${bold}󰌾 root${reset}"
-    hostpart="${root_accent}${yellow} \h${reset}"
+    hostpart="${root_accent}${magenta} \h${reset}"
   else
     userpart="${user_fg}${bold} \u${reset}"
-    hostpart="${user_accent}${yellow} \h${reset}"
+    hostpart="${user_accent}${magenta} \h${reset}"
   fi
 
   local gb; gb=$(_git_branch)
