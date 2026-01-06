@@ -1312,7 +1312,7 @@ Canonicalization        relaxed/simple
 Selector                ${DKIM_SELECTOR}
 MinimumKeyBits          1024
 KeyTable                /etc/opendkim/keytable
-SigningTable            /etc/opendkim/signingtable
+SigningTable            refile:/etc/opendkim/signingtable
 ExternalIgnoreList      /etc/opendkim/trustedhosts
 InternalHosts           /etc/opendkim/trustedhosts
 SignatureAlgorithm      rsa-sha256
