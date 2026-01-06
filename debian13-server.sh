@@ -1262,6 +1262,7 @@ if $INSTALL_POSTFIX_DKIM; then
 
   backup_file /etc/postfix/main.cf
   postconf -e "myhostname=${HOSTNAME_FQDN}"
+  postconf -e "mydomain=${DKIM_DOMAIN}"
   postconf -e "myorigin=${DKIM_DOMAIN}"
   postconf -e "inet_interfaces=loopback-only"
   postconf -e "mydestination=localhost"
@@ -1301,6 +1302,7 @@ if $INSTALL_POSTFIX_DKIM; then
   backup_file /etc/opendkim.conf
   cat >/etc/opendkim.conf <<EOF
 Syslog                  yes
+LogWhy                  yes
 UMask                   007
 Mode                    sv
 Socket                  inet:8891@localhost
