@@ -1365,9 +1365,9 @@ fi
 
 # ---------------------------------- 13) Shell fun & utils -----------------------------
 if $INSTALL_SHELL_FUN; then
-  section "Confort shell (fastfetch, fortune-mod, cowsay, lolcat, grc, archives, beep)"
+  section "Confort shell (fastfetch, toilet, fortune-mod, cowsay, lolcat, grc, archives, beep)"
   # fastfetch remplace neofetch (abandonné), unrar-free remplace unrar (non-free)
-  apt-get install -y fastfetch fortune-mod cowsay lolcat grc p7zip-full zip unzip beep 2>&1 | tee -a "$LOG_FILE" || true
+  apt-get install -y fastfetch toilet figlet fortune-mod cowsay lolcat grc p7zip-full zip unzip beep 2>&1 | tee -a "$LOG_FILE" || true
   # unrar-free en fallback (peut ne pas être dispo)
   apt-get install -y unrar-free 2>/dev/null || true
   # fallback lolcat via pip si paquet non dispo
@@ -2321,20 +2321,26 @@ fi
 command -v composer >/dev/null 2>&1 && eval "$(composer completion bash 2>/dev/null)" || true
 command -v symfony  >/dev/null 2>&1 && eval "$(symfony completion bash 2>/dev/null)" || true
 
-# Message de bienvenue coloré (si les outils sont installés)
-if command -v fortune &>/dev/null && command -v cowsay &>/dev/null && command -v lolcat &>/dev/null; then
-  fortune -a | cowsay -T 'U ' -p | lolcat
-fi
-
-system_banner() {
-  # Préfère fastfetch (moderne), fallback sur neofetch
-  if command -v fastfetch &>/dev/null; then
-    fastfetch --logo none --structure Title:OS:Kernel:Uptime:Memory 2>/dev/null | head -6
-  elif command -v neofetch &>/dev/null; then
-    neofetch --disable packages --stdout | sed -n '1,6p'
+# Banner hostname avec toilet/figlet + infos système
+hostname_banner() {
+  local host=$(hostname -s)
+  if command -v toilet &>/dev/null; then
+    toilet -f smblock --filter border "$host" 2>/dev/null | lolcat 2>/dev/null || toilet -f smblock "$host" 2>/dev/null
+  elif command -v figlet &>/dev/null; then
+    figlet -f small "$host" 2>/dev/null | lolcat 2>/dev/null || figlet -f small "$host" 2>/dev/null
+  else
+    echo -e "\n  \e[1;35m>>> $host <<<\e[0m\n"
   fi
 }
-system_banner 2>/dev/null || true
+hostname_banner 2>/dev/null
+
+# Infos système rapides
+system_info() {
+  if command -v fastfetch &>/dev/null; then
+    fastfetch --logo none --structure OS:Kernel:Uptime:Memory 2>/dev/null
+  fi
+}
+system_info 2>/dev/null || true
 BASHRC
   }
 
