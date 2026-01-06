@@ -2537,7 +2537,7 @@ fi
 
 # UFW
 if $INSTALL_UFW; then
-  if ufw status | grep -q "Status: active"; then
+  if ufw status | grep -qiE "(Status|État).*acti"; then
     check_ok "UFW : actif"
   else
     check_fail "UFW : inactif"
