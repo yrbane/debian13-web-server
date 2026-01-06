@@ -1924,17 +1924,13 @@ WHITELIST_HEADER
     log "ModSecurity: IPs de confiance whitelistées: $TRUSTED_IPS"
   fi
 
-  # Inclure les règles CRS
+  # Inclure les règles CRS (Debian 13 met crs-setup.conf dans /etc/modsecurity/crs/)
   if [ -d /usr/share/modsecurity-crs ]; then
-    # Copier la config CRS exemple (requis sinon erreur 901001)
-    if [ -f /usr/share/modsecurity-crs/crs-setup.conf.example ]; then
-      cp /usr/share/modsecurity-crs/crs-setup.conf.example /usr/share/modsecurity-crs/crs-setup.conf
-    fi
     cat >/etc/apache2/mods-available/security2.conf <<'MODSECCONF'
 <IfModule security2_module>
     SecDataDir /var/cache/modsecurity
     IncludeOptional /etc/modsecurity/*.conf
-    IncludeOptional /usr/share/modsecurity-crs/crs-setup.conf
+    IncludeOptional /etc/modsecurity/crs/crs-setup.conf
     IncludeOptional /usr/share/modsecurity-crs/rules/*.conf
 </IfModule>
 MODSECCONF
