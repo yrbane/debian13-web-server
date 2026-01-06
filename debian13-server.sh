@@ -71,7 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.2.0"
+SCRIPT_VERSION="1.2.1"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -807,12 +807,13 @@ maxretry = 1
 EOF
 
   # Filtre personnalisé pour scanners de vulnérabilités
+  # Note: %% est requis pour échapper % dans les fichiers fail2ban
   cat >/etc/fail2ban/filter.d/apache-vulnscan.conf <<'FILTEREOF'
 [Definition]
 # Détection des scanners de vulnérabilités et tentatives d'exploitation
-failregex = ^<HOST> -.*"(GET|POST|HEAD).*(wp-login|wp-admin|wp-content|wp-includes|xmlrpc\.php|\.env|\.git|config\.php|phpinfo|phpmyadmin|pma|adminer|\.sql|\.bak|shell|eval\(|base64_decode|/etc/passwd|\.\.\/|%2e%2e|%00|<script|\.asp|\.aspx|cgi-bin|\.cgi|myadmin|mysql|setup\.php|install\.php).*".*$
-          ^<HOST> -.*"(GET|POST).*(union.*select|concat\(|information_schema|load_file|into.*outfile|benchmark\().*".*$
-          ^<HOST> -.*"(GET|POST|OPTIONS|PUT|DELETE).*" 400 .*$
+failregex = ^<HOST> -.*"(GET|POST|HEAD).*(wp-login|wp-admin|wp-content|wp-includes|xmlrpc\.php|\.env|\.git|config\.php|phpinfo|phpmyadmin|pma|adminer|\.sql|\.bak|shell|eval\(|base64_decode|/etc/passwd|\.\.\/|%%2e%%2e|%%00|<script|\.asp|\.aspx|cgi-bin|\.cgi|myadmin|mysql|setup\.php|install\.php).*".*$
+            ^<HOST> -.*"(GET|POST).*(union.*select|concat\(|information_schema|load_file|into.*outfile|benchmark\().*".*$
+            ^<HOST> -.*"(GET|POST|OPTIONS|PUT|DELETE).*" 400 .*$
 ignoreregex =
 FILTEREOF
 
