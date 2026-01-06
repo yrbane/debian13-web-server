@@ -2361,7 +2361,14 @@ BASHRC
       chown "${user}:${user}" "${home}/.bashrc" || true
     fi
   done < /etc/passwd
-  log ".bashrc déployé."
+
+  # Vider /etc/motd (on utilise notre propre banner dans .bashrc)
+  echo -n > /etc/motd
+
+  # Désactiver les scripts MOTD dynamiques si présents
+  [[ -d /etc/update-motd.d ]] && chmod -x /etc/update-motd.d/* 2>/dev/null || true
+
+  log ".bashrc déployé, /etc/motd vidé."
 fi
 
 fi # Fin du bloc if ! $AUDIT_MODE (skip installation)
