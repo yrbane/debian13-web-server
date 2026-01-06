@@ -3113,6 +3113,25 @@ if $INSTALL_POSTFIX_DKIM; then
     fi
   fi
 
+  # Comparaison clé locale vs DNS via dig
+  if command -v dig >/dev/null 2>&1 && [[ -f "$DKIM_PUB" ]]; then
+    DKIM_DNS_RECORD="${DKIM_SELECTOR}._domainkey.${DKIM_DOMAIN}"
+    DNS_KEY=$(dig +short TXT "$DKIM_DNS_RECORD" 2>/dev/null | tr -d '"\n ' | grep -oP 'p=\K[^;]+')
+    LOCAL_KEY=$(cat "$DKIM_PUB" 2>/dev/null | tr -d '"\n\t ' | grep -oP 'p=\K[^;)]+' | tr -d ' ')
+
+    if [[ -z "$DNS_KEY" ]]; then
+      check_warn "DKIM DNS : enregistrement ${DKIM_DNS_RECORD} non trouvé"
+    elif [[ -z "$LOCAL_KEY" ]]; then
+      check_warn "DKIM : impossible d'extraire la clé locale"
+    elif [[ "$DNS_KEY" == "$LOCAL_KEY" ]]; then
+      check_ok "DKIM : clé DNS identique à ${DKIM_PUB}"
+    else
+      check_fail "DKIM : clé DNS différente de ${DKIM_PUB}"
+      note "  → DNS: ${DNS_KEY:0:40}..."
+      note "  → Local: ${LOCAL_KEY:0:40}..."
+    fi
+  fi
+
   # Vérification file d'attente emails
   MAIL_QUEUE=$(mailq 2>/dev/null | tail -1)
   if echo "$MAIL_QUEUE" | grep -q "Mail queue is empty"; then
