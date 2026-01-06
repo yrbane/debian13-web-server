@@ -237,6 +237,7 @@ INSTALL_NODE=${INSTALL_NODE}
 INSTALL_RUST=${INSTALL_RUST}
 INSTALL_PYTHON3=${INSTALL_PYTHON3}
 INSTALL_COMPOSER=${INSTALL_COMPOSER}
+INSTALL_SYMFONY=${INSTALL_SYMFONY}
 INSTALL_SHELL_FUN=${INSTALL_SHELL_FUN}
 INSTALL_YTDL=${INSTALL_YTDL}
 INSTALL_CLAMAV=${INSTALL_CLAMAV}
@@ -355,6 +356,7 @@ show_config() {
   $INSTALL_RUST && comps+="rust "
   $INSTALL_PYTHON3 && comps+="python3 "
   $INSTALL_COMPOSER && comps+="composer "
+  $INSTALL_SYMFONY && comps+="symfony "
   $INSTALL_SHELL_FUN && comps+="shell-fun "
   $INSTALL_YTDL && comps+="youtube-dl "
   $INSTALL_CLAMAV && comps+="clamav "
@@ -408,6 +410,10 @@ ask_all_questions() {
   prompt_yes_no "Installer Python 3 + pip + venv ?" "y" || INSTALL_PYTHON3=false
   INSTALL_COMPOSER=true
   prompt_yes_no "Installer Composer (global) ?" "y" || INSTALL_COMPOSER=false
+  INSTALL_SYMFONY=false
+  if $INSTALL_COMPOSER; then
+    prompt_yes_no "Installer Symfony CLI ?" "y" && INSTALL_SYMFONY=true
+  fi
   INSTALL_SHELL_FUN=true
   prompt_yes_no "Installer fastfetch, fortune-mod, cowsay, lolcat, grc, p7zip/zip/unzip, beep ?" "y" || INSTALL_SHELL_FUN=false
   INSTALL_YTDL=false
@@ -453,6 +459,7 @@ if $AUDIT_MODE; then
     INSTALL_BASHRC_GLOBAL=${INSTALL_BASHRC_GLOBAL:-true}
     PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
     TRUSTED_IPS=${TRUSTED_IPS:-}
+    INSTALL_SYMFONY=${INSTALL_SYMFONY:-false}
   else
     die "Mode audit : fichier de configuration ${CONFIG_FILE} requis. Exécutez d'abord le script normalement."
   fi
@@ -487,6 +494,7 @@ else
     SECURE_TMP=${SECURE_TMP:-true}
     INSTALL_BASHRC_GLOBAL=${INSTALL_BASHRC_GLOBAL:-true}
     PHP_DISABLE_FUNCTIONS=${PHP_DISABLE_FUNCTIONS:-true}
+    INSTALL_SYMFONY=${INSTALL_SYMFONY:-false}
     section "Configuration existante chargée (mode pipe)"
     show_config
   else
@@ -709,7 +717,7 @@ if $INSTALL_APACHE_PHP; then
   section "Apache + PHP"
   apt-get install -y apache2 apache2-utils | tee -a "$LOG_FILE"
   systemctl enable --now apache2
-  apt-get install -y php php-cli php-fpm php-mysql php-curl php-xml php-gd php-mbstring php-zip php-intl php-opcache libapache2-mod-php | tee -a "$LOG_FILE"
+  apt-get install -y php php-cli php-fpm php-mysql php-curl php-xml php-gd php-mbstring php-zip php-intl php-opcache php-imagick imagemagick libapache2-mod-php | tee -a "$LOG_FILE"
   apt-get install -y libapache2-mod-security2 libapache2-mod-evasive | tee -a "$LOG_FILE"
 
   # Activer les modules Apache utiles
@@ -1370,6 +1378,35 @@ if $INSTALL_COMPOSER; then
   log "Composer installé pour ${ADMIN_USER}."
 fi
 
+# ---------------------------------- 12b) Symfony CLI -----------------------------------
+if $INSTALL_SYMFONY; then
+  section "Symfony CLI et dépendances"
+  USER_HOME="$(get_user_home)"
+
+  # Extensions PHP supplémentaires pour Symfony
+  # (les extensions de base sont déjà dans la section Apache/PHP)
+  # Note: sodium est inclus dans PHP 8.x core
+  apt-get install -y \
+    php-apcu \
+    php-sqlite3 \
+    php-bcmath \
+    php-redis \
+    php-amqp \
+    php-yaml \
+    | tee -a "$LOG_FILE"
+
+  # Redémarrer PHP-FPM pour charger les nouvelles extensions
+  systemctl restart php*-fpm 2>/dev/null || true
+
+  # Installer Symfony CLI
+  curl -1sLf 'https://dl.cloudsmith.io/public/symfony/stable/setup.deb.sh' | sudo bash
+  apt-get install -y symfony-cli | tee -a "$LOG_FILE"
+
+  # Vérifier l'installation
+  symfony version || true
+  log "Symfony CLI et dépendances installés."
+fi
+
 # ---------------------------------- 13) Shell fun & utils -----------------------------
 if $INSTALL_SHELL_FUN; then
   section "Confort shell (fastfetch, toilet, fortune-mod, cowsay, lolcat, grc, archives, beep)"
@@ -1814,6 +1851,10 @@ WHITELIST_HEADER
 
   # Inclure les règles CRS
   if [ -d /usr/share/modsecurity-crs ]; then
+    # Copier la config CRS exemple (requis sinon erreur 901001)
+    if [ -f /usr/share/modsecurity-crs/crs-setup.conf.example ]; then
+      cp /usr/share/modsecurity-crs/crs-setup.conf.example /usr/share/modsecurity-crs/crs-setup.conf
+    fi
     cat >/etc/apache2/mods-available/security2.conf <<'MODSECCONF'
 <IfModule security2_module>
     SecDataDir /var/cache/modsecurity
@@ -2916,6 +2957,16 @@ if $INSTALL_COMPOSER; then
     check_ok "Composer : ${COMPOSER_VER} (pour ${ADMIN_USER})"
   else
     check_fail "Composer : non installé pour ${ADMIN_USER}"
+  fi
+fi
+
+# Symfony CLI
+if $INSTALL_SYMFONY; then
+  if command -v symfony >/dev/null 2>&1; then
+    SYMFONY_VER=$(symfony version 2>/dev/null | head -1 | awk '{print $4}')
+    check_ok "Symfony CLI : ${SYMFONY_VER}"
+  else
+    check_fail "Symfony CLI : non installé"
   fi
 fi
 
