@@ -71,7 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.1.2"
+SCRIPT_VERSION="1.1.3"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -3820,8 +3820,8 @@ if $AUDIT_MODE; then
           <!-- Header -->
           <tr>
             <td style="background-color:#142136; padding:30px; text-align:center;">
-              <div style="font-size:42px; color:#dc5c3b; font-weight:bold; letter-spacing:-2px;">»</div>
-              <h1 style="color:#ffffff; font-size:22px; margin:10px 0 0 0; font-weight:600;">Audit de sécurité</h1>
+              <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJDYWxxdWVfMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTMyLjQzMDggMTQwLjAwNyI+PGcgaWQ9IkNvbXBvbmVudHMiPjxnIGlkPSJfOTZmMTU1MTgtYWUxMy00N2IxLWIyMjAtMTkwNmU3NjUyMWViXzEiPjxwYXRoIGQ9Ik0xMDEuNzUwMiwxLjMzMTZsLTQ4Ljg3NjUsMjcuMzYwM2MtMy4yOTcyLDEuODQ2NS0zLjI4MTcsNi41NDI4LS4wMzEsOC40NzAyLDQ0LjY1NTIsMjYuNDYwMywzMi44MjQxLDYwLjYzMTksMTYuMzA1NCw4My42NjU5LTMuMjA3Nyw0LjQ2OTEsMi4zMTQ2LDkuOTYzOSw2Ljc5NCw2Ljc3MzRDMTExLjE3NTUsMTAyLjUxNzgsMTU4LjcxNDksNTUuMjg2NSwxMTQuNzA2OCwzLjU4OTRjLTMuMTkyMi0zLjc0OTgtOC42NTc4LTQuNjYzNi0xMi45NTY1LTIuMjU3OCIgc3R5bGU9ImZpbGw6I2RjNWMzYjsgc3Ryb2tlLXdpZHRoOjBweDsiLz48cGF0aCBkPSJNMzAuOTQwMyw0My44MTMxTDIuNTg0NSw1OS42ODc1Yy0zLjQyNTQsMS45MTU4LTMuNDMwOCw2Ljc0MTItLjEwNiw4LjgyMjMsMzIuMjY2NSwyMC4xNzY5LDI0LjQzOCw0NS42ODQxLDEyLjE4NjYsNjMuNTMzNy0zLjA5NjUsNC41MTQ1LDIuMjUxOSwxMC4wNjc4LDYuODg2OCw3LjE1NDUsMzIuMTY0LTIwLjIyMTgsNzUuMjYwMi01OC4zNDE2LDIwLjg3Ni05NC44NjItMy40MzA4LTIuMzAyMi03Ljg4MjQtMi41NDEyLTExLjQ4NzUtLjUyMyIgc3R5bGU9ImZpbGw6I2RjNWMzYjsgc3Ryb2tlLXdpZHRoOjBweDsiLz48L2c+PC9nPjwvc3ZnPg==" alt="Since & Co" width="45" height="48" style="display:block; margin:0 auto 15px auto;">
+              <h1 style="color:#ffffff; font-size:22px; margin:0; font-weight:600;">Audit de sécurité</h1>
 HTMLEOF
 
   # Ajouter les infos dynamiques dans le header
@@ -4220,8 +4220,8 @@ PROGHTML
           <!-- Footer -->
           <tr>
             <td style="background-color:#142136; padding:25px; text-align:center;">
-              <div style="font-size:32px; color:#dc5c3b; font-weight:bold;">»</div>
-              <p style="color:#a0a0a0; font-size:12px; margin:10px 0 5px 0;">Audit généré par <span style="color:#dc5c3b; font-weight:500;">Since & Co</span></p>
+              <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJDYWxxdWVfMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTMyLjQzMDggMTQwLjAwNyI+PGcgaWQ9IkNvbXBvbmVudHMiPjxnIGlkPSJfOTZmMTU1MTgtYWUxMy00N2IxLWIyMjAtMTkwNmU3NjUyMWViXzEiPjxwYXRoIGQ9Ik0xMDEuNzUwMiwxLjMzMTZsLTQ4Ljg3NjUsMjcuMzYwM2MtMy4yOTcyLDEuODQ2NS0zLjI4MTcsNi41NDI4LS4wMzEsOC40NzAyLDQ0LjY1NTIsMjYuNDYwMywzMi44MjQxLDYwLjYzMTksMTYuMzA1NCw4My42NjU5LTMuMjA3Nyw0LjQ2OTEsMi4zMTQ2LDkuOTYzOSw2Ljc5NCw2Ljc3MzRDMTExLjE3NTUsMTAyLjUxNzgsMTU4LjcxNDksNTUuMjg2NSwxMTQuNzA2OCwzLjU4OTRjLTMuMTkyMi0zLjc0OTgtOC42NTc4LTQuNjYzNi0xMi45NTY1LTIuMjU3OCIgc3R5bGU9ImZpbGw6I2RjNWMzYjsgc3Ryb2tlLXdpZHRoOjBweDsiLz48cGF0aCBkPSJNMzAuOTQwMyw0My44MTMxTDIuNTg0NSw1OS42ODc1Yy0zLjQyNTQsMS45MTU4LTMuNDMwOCw2Ljc0MTItLjEwNiw4LjgyMjMsMzIuMjY2NSwyMC4xNzY5LDI0LjQzOCw0NS42ODQxLDEyLjE4NjYsNjMuNTMzNy0zLjA5NjUsNC41MTQ1LDIuMjUxOSwxMC4wNjc4LDYuODg2OCw3LjE1NDUsMzIuMTY0LTIwLjIyMTgsNzUuMjYwMi01OC4zNDE2LDIwLjg3Ni05NC44NjItMy40MzA4LTIuMzAyMi03Ljg4MjQtMi41NDEyLTExLjQ4NzUtLjUyMyIgc3R5bGU9ImZpbGw6I2RjNWMzYjsgc3Ryb2tlLXdpZHRoOjBweDsiLz48L2c+PC9nPjwvc3ZnPg==" alt="Since & Co" width="30" height="32" style="display:block; margin:0 auto 10px auto;">
+              <p style="color:#a0a0a0; font-size:12px; margin:0 0 5px 0;">Audit généré par <span style="color:#dc5c3b; font-weight:500;">Since & Co</span></p>
               <p style="color:#666; font-size:11px; margin:0;">Prochain audit : lundi à 7h00</p>
             </td>
           </tr>
