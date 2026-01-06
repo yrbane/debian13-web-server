@@ -2002,6 +2002,7 @@ bind 'set completion-ignore-case on'
 bind 'set show-all-if-ambiguous on'
 
 # --- PATH & outils (ajoute si présents)
+[[ -d "/usr/sbin" ]] && [[ ":$PATH:" != *":/usr/sbin:"* ]] && PATH="/usr/sbin:$PATH"
 [[ -d "$HOME/.local/bin" ]] && PATH="$HOME/.local/bin:$PATH"
 [[ -d "$HOME/bin" ]] && PATH="$HOME/bin:$PATH"
 export PATH
