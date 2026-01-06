@@ -71,7 +71,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.1.1"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -3789,7 +3789,8 @@ if $AUDIT_MODE; then
   AUDIT_REPORT="/tmp/audit_report_$(date +%Y%m%d_%H%M%S).html"
 
   # Génère le rapport HTML avec charte graphique Since & Co
-  # Couleurs: #dc5c3b (orange accent), #142136 (bleu foncé), #f2fafa (fond clair), #6bdbdb (cyan), #99c454 (vert)
+  # Version email-compatible (tables, inline styles, pas de SVG)
+  # Couleurs: #dc5c3b (orange), #142136 (bleu foncé), #f2fafa (fond), #99c454 (vert)
   cat > "$AUDIT_REPORT" <<'HTMLEOF'
 <!DOCTYPE html>
 <html>
@@ -3797,126 +3798,79 @@ if $AUDIT_MODE; then
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audit de sécurité</title>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif; background: #f2fafa; color: #142136; padding: 0; line-height: 1.5; }
-    .email-container { max-width: 680px; margin: 0 auto; background: #ffffff; }
-
-    /* Header */
-    .header { background: linear-gradient(135deg, #142136 0%, #1e3a5f 100%); padding: 30px; text-align: center; }
-    .logo { width: 50px; height: 53px; margin-bottom: 15px; }
-    .header h1 { color: #ffffff; font-size: 24px; font-weight: 600; margin: 0; letter-spacing: 0.5px; }
-    .header .subtitle { color: #6bdbdb; font-size: 14px; margin-top: 8px; }
-
-    /* Summary cards */
-    .summary-row { display: flex; padding: 20px; gap: 15px; background: #f8fafa; }
-    .summary-card { flex: 1; padding: 20px; border-radius: 12px; text-align: center; }
-    .summary-card.ok { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-left: 4px solid #99c454; }
-    .summary-card.warn { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border-left: 4px solid #ff9800; }
-    .summary-card.fail { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); border-left: 4px solid #dc5c3b; }
-    .summary-card .count { font-size: 32px; font-weight: 600; }
-    .summary-card.ok .count { color: #2e7d32; }
-    .summary-card.warn .count { color: #e65100; }
-    .summary-card.fail .count { color: #dc5c3b; }
-    .summary-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-top: 5px; }
-
-    /* Content */
-    .content { padding: 25px; }
-
-    /* Sections */
-    h2 { color: #142136; font-size: 16px; font-weight: 600; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #dc5c3b; display: flex; align-items: center; gap: 8px; }
-    h2:first-child { margin-top: 0; }
-    .section { background: #f8fafa; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
-
-    /* Checks */
-    .check { padding: 8px 12px; margin: 4px 0; border-radius: 6px; font-size: 14px; display: flex; align-items: center; gap: 10px; background: #ffffff; }
-    .check-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
-    .check.ok .check-icon { background: #99c454; color: white; }
-    .check.warn .check-icon { background: #ff9800; color: white; }
-    .check.fail .check-icon { background: #dc5c3b; color: white; }
-    .check.info .check-icon { background: #6bdbdb; color: #142136; }
-
-    /* Progress bars */
-    .progress-container { margin: 15px 0; }
-    .progress-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
-    .progress-bar { height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 5px; transition: width 0.3s; }
-    .progress-fill.green { background: linear-gradient(90deg, #99c454, #7cb342); }
-    .progress-fill.orange { background: linear-gradient(90deg, #ff9800, #f57c00); }
-    .progress-fill.red { background: linear-gradient(90deg, #dc5c3b, #c62828); }
-    .progress-fill.cyan { background: linear-gradient(90deg, #6bdbdb, #4db6ac); }
-
-    /* Stats grid */
-    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 15px 0; }
-    .stat-box { background: #ffffff; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #e8e8e8; }
-    .stat-value { font-size: 24px; font-weight: 600; color: #142136; }
-    .stat-value.accent { color: #dc5c3b; }
-    .stat-value.cyan { color: #6bdbdb; }
-    .stat-value.green { color: #99c454; }
-    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-top: 4px; }
-
-    /* Footer */
-    .footer { background: #142136; color: #ffffff; padding: 25px; text-align: center; }
-    .footer p { font-size: 12px; color: #a0a0a0; margin: 5px 0; }
-    .footer .brand { color: #dc5c3b; font-weight: 500; }
-
-    /* Responsive */
-    @media (max-width: 600px) {
-      .summary-row { flex-direction: column; }
-      .stats-grid { grid-template-columns: 1fr; }
-    }
-  </style>
 </head>
-<body>
-  <div class="email-container">
-    <!-- Header avec logo -->
-    <div class="header">
-      <svg class="logo" viewBox="0 0 132.4308 140.007" xmlns="http://www.w3.org/2000/svg">
-        <path d="M101.7502,1.3316l-48.8765,27.3603c-3.2972,1.8465-3.2817,6.5428-.031,8.4702,44.6552,26.4603,32.8241,60.6319,16.3054,83.6659-3.2077,4.4691,2.3146,9.9639,6.794,6.7734C111.1755,102.5178,158.7149,55.2865,114.7068,3.5894c-3.1922-3.7498-8.6578-4.6636-12.9565-2.2578" fill="#dc5c3b"/>
-        <path d="M30.9403,43.8131L2.5845,59.6875c-3.4254,1.9158-3.4308,6.7412-.106,8.8223,32.2665,20.1769,24.438,45.6841,12.1866,63.5337-3.0965,4.5145,2.2519,10.0678,6.8868,7.1545,32.164-20.2218,75.2602-58.3416,20.876-94.862-3.4308-2.3022-7.8824-2.5412-11.4875-.523" fill="#dc5c3b"/>
-      </svg>
-      <h1>Audit de sécurité</h1>
+<body style="margin:0; padding:0; background-color:#f2fafa; font-family:Arial, Helvetica, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2fafa;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#142136; padding:30px; text-align:center;">
+              <div style="font-size:42px; color:#dc5c3b; font-weight:bold; letter-spacing:-2px;">»</div>
+              <h1 style="color:#ffffff; font-size:22px; margin:10px 0 0 0; font-weight:600;">Audit de sécurité</h1>
 HTMLEOF
 
   # Ajouter les infos dynamiques dans le header
   cat >> "$AUDIT_REPORT" <<HTMLEOF
-      <div class="subtitle">${HOSTNAME_FQDN} • $(date '+%d/%m/%Y %H:%M') • v${SCRIPT_VERSION}</div>
-    </div>
-
-    <!-- Résumé -->
-    <div class="summary-row">
-      <div class="summary-card ok">
-        <div class="count">${CHECKS_OK}</div>
-        <div class="label">OK</div>
-      </div>
-      <div class="summary-card warn">
-        <div class="count">${CHECKS_WARN}</div>
-        <div class="label">Avertissements</div>
-      </div>
-      <div class="summary-card fail">
-        <div class="count">${CHECKS_FAIL}</div>
-        <div class="label">Erreurs</div>
-      </div>
-    </div>
-
-    <div class="content">
+              <p style="color:#6bdbdb; font-size:13px; margin:8px 0 0 0;">${HOSTNAME_FQDN} • $(date '+%d/%m/%Y %H:%M') • v${SCRIPT_VERSION}</p>
+            </td>
+          </tr>
+          <!-- Résumé -->
+          <tr>
+            <td style="padding:20px; background-color:#f8f9fa;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="33%" style="padding:5px;">
+                    <table width="100%" cellpadding="15" cellspacing="0" style="background-color:#e8f5e9; border-radius:8px; border-left:4px solid #99c454;">
+                      <tr><td align="center">
+                        <div style="font-size:28px; font-weight:bold; color:#2e7d32;">${CHECKS_OK}</div>
+                        <div style="font-size:11px; color:#666; text-transform:uppercase;">OK</div>
+                      </td></tr>
+                    </table>
+                  </td>
+                  <td width="33%" style="padding:5px;">
+                    <table width="100%" cellpadding="15" cellspacing="0" style="background-color:#fff3e0; border-radius:8px; border-left:4px solid #ff9800;">
+                      <tr><td align="center">
+                        <div style="font-size:28px; font-weight:bold; color:#e65100;">${CHECKS_WARN}</div>
+                        <div style="font-size:11px; color:#666; text-transform:uppercase;">Warn</div>
+                      </td></tr>
+                    </table>
+                  </td>
+                  <td width="33%" style="padding:5px;">
+                    <table width="100%" cellpadding="15" cellspacing="0" style="background-color:#ffebee; border-radius:8px; border-left:4px solid #dc5c3b;">
+                      <tr><td align="center">
+                        <div style="font-size:28px; font-weight:bold; color:#dc5c3b;">${CHECKS_FAIL}</div>
+                        <div style="font-size:11px; color:#666; text-transform:uppercase;">Erreurs</div>
+                      </td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Contenu -->
+          <tr>
+            <td style="padding:25px;">
 HTMLEOF
 
   # Fonctions pour générer le HTML
   add_html_section() {
-    echo "<h2>$1</h2><div class='section'>" >> "$AUDIT_REPORT"
+    cat >> "$AUDIT_REPORT" <<SECTIONHTML
+              <h2 style="color:#142136; font-size:15px; font-weight:600; margin:25px 0 12px 0; padding-bottom:8px; border-bottom:2px solid #dc5c3b;">$1</h2>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8f9fa; border-radius:8px; padding:5px;">
+SECTIONHTML
   }
 
   add_html_check() {
     local status="$1" msg="$2"
-    local class="info" icon="i"
+    local color="#6bdbdb" icon="•"
     case "$status" in
-      ok) class="ok"; icon="✓" ;;
-      warn) class="warn"; icon="!" ;;
-      fail) class="fail"; icon="✕" ;;
+      ok) color="#99c454"; icon="✓" ;;
+      warn) color="#ff9800"; icon="⚠" ;;
+      fail) color="#dc5c3b"; icon="✗" ;;
     esac
-    echo "<div class='check ${class}'><span class='check-icon'>${icon}</span> ${msg}</div>" >> "$AUDIT_REPORT"
+    echo "<tr><td style='padding:6px 12px; font-size:13px;'><span style='color:${color}; font-weight:bold; margin-right:8px;'>${icon}</span>${msg}</td></tr>" >> "$AUDIT_REPORT"
   }
 
   # Fonction pour ajouter une barre de progression
@@ -3924,32 +3878,53 @@ HTMLEOF
     local label="$1" value="$2" max="${3:-100}" color="${4:-green}"
     local pct=$((value * 100 / max))
     [[ "$pct" -gt 100 ]] && pct=100
+    local bar_color="#99c454"
+    case "$color" in
+      orange) bar_color="#ff9800" ;;
+      red) bar_color="#dc5c3b" ;;
+      cyan) bar_color="#6bdbdb" ;;
+    esac
     cat >> "$AUDIT_REPORT" <<PROGHTML
-<div class="progress-container">
-  <div class="progress-label"><span>${label}</span><span>${value}%</span></div>
-  <div class="progress-bar"><div class="progress-fill ${color}" style="width: ${pct}%;"></div></div>
-</div>
+                <tr><td style="padding:8px 12px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="font-size:12px; color:#333;">${label}</td>
+                      <td width="50" align="right" style="font-size:12px; font-weight:bold; color:#333;">${value}%</td>
+                    </tr>
+                    <tr>
+                      <td colspan="2" style="padding-top:4px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#e0e0e0; border-radius:4px; height:8px;">
+                          <tr><td width="${pct}%" style="background-color:${bar_color}; border-radius:4px;"></td><td></td></tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </td></tr>
 PROGHTML
   }
 
-  # Fonction pour ajouter une grille de stats
+  # Fonction pour ajouter une grille de stats (simplifié pour email)
   add_stats_grid_open() {
-    echo "<div class='stats-grid'>" >> "$AUDIT_REPORT"
+    echo "<tr><td style='padding:10px 12px;'><table width='100%' cellpadding='0' cellspacing='8'><tr>" >> "$AUDIT_REPORT"
   }
 
   add_stat_box() {
     local value="$1" label="$2" color="${3:-}"
-    local color_class=""
-    [[ -n "$color" ]] && color_class=" $color"
-    echo "<div class='stat-box'><div class='stat-value${color_class}'>${value}</div><div class='stat-label'>${label}</div></div>" >> "$AUDIT_REPORT"
+    local val_color="#142136"
+    case "$color" in
+      accent) val_color="#dc5c3b" ;;
+      cyan) val_color="#6bdbdb" ;;
+      green) val_color="#99c454" ;;
+    esac
+    echo "<td width='50%' style='background:#fff; border-radius:8px; padding:12px; text-align:center; border:1px solid #eee;'><div style='font-size:22px; font-weight:bold; color:${val_color};'>${value}</div><div style='font-size:10px; color:#888; text-transform:uppercase;'>${label}</div></td>" >> "$AUDIT_REPORT"
   }
 
   add_stats_grid_close() {
-    echo "</div>" >> "$AUDIT_REPORT"
+    echo "</tr></table></td></tr>" >> "$AUDIT_REPORT"
   }
 
   close_section() {
-    echo "</div>" >> "$AUDIT_REPORT"
+    echo "</table>" >> "$AUDIT_REPORT"
   }
 
   # Services
@@ -4227,18 +4202,20 @@ PROGHTML
 
   # Ferme le contenu et ajoute le footer Since & Co
   cat >> "$AUDIT_REPORT" <<'HTMLEOF'
-    </div><!-- /content -->
-
-    <!-- Footer Since & Co -->
-    <div class="footer">
-      <svg width="35" height="37" viewBox="0 0 132.4308 140.007" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 10px;">
-        <path d="M101.7502,1.3316l-48.8765,27.3603c-3.2972,1.8465-3.2817,6.5428-.031,8.4702,44.6552,26.4603,32.8241,60.6319,16.3054,83.6659-3.2077,4.4691,2.3146,9.9639,6.794,6.7734C111.1755,102.5178,158.7149,55.2865,114.7068,3.5894c-3.1922-3.7498-8.6578-4.6636-12.9565-2.2578" fill="#dc5c3b"/>
-        <path d="M30.9403,43.8131L2.5845,59.6875c-3.4254,1.9158-3.4308,6.7412-.106,8.8223,32.2665,20.1769,24.438,45.6841,12.1866,63.5337-3.0965,4.5145,2.2519,10.0678,6.8868,7.1545,32.164-20.2218,75.2602-58.3416,20.876-94.862-3.4308-2.3022-7.8824-2.5412-11.4875-.523" fill="#dc5c3b"/>
-      </svg>
-      <p>Audit généré par <span class="brand">Since & Co</span></p>
-      <p>Prochain audit prévu : lundi à 7h00</p>
-    </div>
-  </div><!-- /email-container -->
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#142136; padding:25px; text-align:center;">
+              <div style="font-size:32px; color:#dc5c3b; font-weight:bold;">»</div>
+              <p style="color:#a0a0a0; font-size:12px; margin:10px 0 5px 0;">Audit généré par <span style="color:#dc5c3b; font-weight:500;">Since & Co</span></p>
+              <p style="color:#666; font-size:11px; margin:0;">Prochain audit : lundi à 7h00</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
 HTMLEOF
