@@ -69,15 +69,15 @@ DKIM_DOMAIN_DEFAULT="bysince.fr"
 EMAIL_FOR_CERTBOT_DEFAULT="root@bysince.fr"
 TIMEZONE_DEFAULT="Europe/Paris"
 
-# Fichier de configuration
-# Gère le cas où le script est exécuté via pipe (curl | bash)
+# Fichier de configuration (toujours dans /root pour cohérence)
+CONFIG_FILE="/root/.bootstrap.conf"
+
+# Répertoire du script (pour référence)
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  CONFIG_FILE="${SCRIPT_DIR}/.bootstrap.conf"
 else
-  # Exécution via pipe : utiliser /root comme fallback
-  SCRIPT_DIR="/root"
-  CONFIG_FILE="/root/.bootstrap.conf"
+  # Exécution via pipe
+  SCRIPT_DIR="/root/scripts"
 fi
 
 # ---------------------------------- Aide / usage --------------------------------------
@@ -3873,6 +3873,13 @@ if [[ "$CURRENT_SCRIPT" != "$INSTALL_SCRIPT_PATH" ]]; then
   cp -f "$CURRENT_SCRIPT" "$INSTALL_SCRIPT_PATH"
   chmod +x "$INSTALL_SCRIPT_PATH"
   log "Script copié dans ${INSTALL_SCRIPT_PATH}"
+fi
+
+# Migrer l'ancien .bootstrap.conf s'il existe ailleurs
+OLD_CONFIG="${SCRIPT_DIR}/.bootstrap.conf"
+if [[ -f "$OLD_CONFIG" && "$OLD_CONFIG" != "$CONFIG_FILE" && ! -f "$CONFIG_FILE" ]]; then
+  cp -f "$OLD_CONFIG" "$CONFIG_FILE"
+  log "Configuration migrée vers ${CONFIG_FILE}"
 fi
 
 # Ajoute/met à jour le cron pour l'audit hebdomadaire (lundi 7h00)
