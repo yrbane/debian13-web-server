@@ -408,7 +408,7 @@ ask_all_questions() {
   INSTALL_COMPOSER=true
   prompt_yes_no "Installer Composer (global) ?" "y" || INSTALL_COMPOSER=false
   INSTALL_SHELL_FUN=true
-  prompt_yes_no "Installer neofetch, fortune-mod, cowsay, lolcat, grc, p7zip/unrar/zip/unzip, beep ?" "y" || INSTALL_SHELL_FUN=false
+  prompt_yes_no "Installer fastfetch, fortune-mod, cowsay, lolcat, grc, p7zip/zip/unzip, beep ?" "y" || INSTALL_SHELL_FUN=false
   INSTALL_YTDL=false
   prompt_yes_no "Installer youtube-dl ?" "n" && INSTALL_YTDL=true
   INSTALL_CLAMAV=true
@@ -1364,12 +1364,17 @@ fi
 
 # ---------------------------------- 13) Shell fun & utils -----------------------------
 if $INSTALL_SHELL_FUN; then
-  section "Confort shell (neofetch, fortune-mod, cowsay, lolcat, grc, archives, beep)"
-  apt-get install -y neofetch fortune-mod cowsay lolcat grc p7zip-full unrar zip unzip beep | tee -a "$LOG_FILE" || true
-  # fallback lolcat si nécessaire
-  command -v lolcat >/dev/null 2>&1 || apt-get install -y ruby-lolcat || true
+  section "Confort shell (fastfetch, fortune-mod, cowsay, lolcat, grc, archives, beep)"
+  # fastfetch remplace neofetch (abandonné), unrar-free remplace unrar (non-free)
+  apt-get install -y fastfetch fortune-mod cowsay lolcat grc p7zip-full zip unzip beep 2>&1 | tee -a "$LOG_FILE" || true
+  # unrar-free en fallback (peut ne pas être dispo)
+  apt-get install -y unrar-free 2>/dev/null || true
+  # fallback lolcat via pip si paquet non dispo
+  if ! command -v lolcat &>/dev/null; then
+    apt-get install -y python3-lolcat 2>/dev/null || pip3 install lolcat 2>/dev/null || true
+  fi
   if $INSTALL_YTDL; then
-    apt-get install -y youtube-dl || true
+    apt-get install -y yt-dlp || apt-get install -y youtube-dl || true
   fi
   log "Outils de confort installés."
 fi
@@ -2320,11 +2325,15 @@ if command -v fortune &>/dev/null && command -v cowsay &>/dev/null && command -v
   fortune -a | cowsay -T 'U ' -p | lolcat
 fi
 
-neofetch_banner() {
-  command -v neofetch >/dev/null 2>&1 || return
-  neofetch --disable packages --stdout | sed -n '1,6p'
+system_banner() {
+  # Préfère fastfetch (moderne), fallback sur neofetch
+  if command -v fastfetch &>/dev/null; then
+    fastfetch --logo none --structure Title:OS:Kernel:Uptime:Memory 2>/dev/null | head -6
+  elif command -v neofetch &>/dev/null; then
+    neofetch --disable packages --stdout | sed -n '1,6p'
+  fi
 }
-neofetch_banner 2>/dev/null || true
+system_banner 2>/dev/null || true
 BASHRC
   }
 
