@@ -72,7 +72,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.3.1"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -1824,6 +1824,10 @@ if $INSTALL_RKHUNTER; then
   sed -i 's/^UPDATE_MIRRORS=.*/UPDATE_MIRRORS=0/' /etc/rkhunter.conf
   sed -i 's/^MIRRORS_MODE=.*/MIRRORS_MODE=0/' /etc/rkhunter.conf
   sed -i 's/^WEB_CMD=.*/WEB_CMD=""/' /etc/rkhunter.conf
+  # Langue française et désactiver SSH v1
+  sed -i 's/^#\?LANGUAGE=.*/LANGUAGE=fr/' /etc/rkhunter.conf
+  sed -i 's/^#\?UPDATE_LANG=.*/UPDATE_LANG="fr"/' /etc/rkhunter.conf
+  sed -i 's/^#\?ALLOW_SSH_PROT_V1=.*/ALLOW_SSH_PROT_V1=0/' /etc/rkhunter.conf
   # Autoriser les scripts dans /dev (systemd)
   sed -i 's/^ALLOWDEVFILE=.*/ALLOWDEVFILE=\/dev\/.udev\/rules.d\/root.rules/' /etc/rkhunter.conf
   # Réduire les faux positifs sur Debian
