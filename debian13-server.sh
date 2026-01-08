@@ -46,9 +46,10 @@ set -Eeuo pipefail
 
 # ---------------------------------- Couleurs & Logs (sortie jolie) ---------------------
 if [[ -t 1 ]]; then
-  RED="\e[31m"; GREEN="\e[32m"; YELLOW="\e[33m"; BLUE="\e[34m"; MAGENTA="\e[35m"; CYAN="\e[36m"; BOLD="\e[1m"; RESET="\e[0m"
+  RED="\e[31m"; GREEN="\e[32m"; YELLOW="\e[33m"; BLUE="\e[34m"; MAGENTA="\e[35m"; CYAN="\e[36m"
+  WHITE="\e[97m"; GRAY="\e[90m"; BOLD="\e[1m"; RESET="\e[0m"
 else
-  RED=""; GREEN=""; YELLOW=""; BLUE=""; MAGENTA=""; CYAN=""; BOLD=""; RESET=""
+  RED=""; GREEN=""; YELLOW=""; BLUE=""; MAGENTA=""; CYAN=""; WHITE=""; GRAY=""; BOLD=""; RESET=""
 fi
 
 log()     { printf "${GREEN}[+]${RESET} %b\n" "$*"; }
@@ -71,7 +72,7 @@ TIMEZONE_DEFAULT="Europe/Paris"
 
 # Répertoire et nom du script
 SCRIPT_NAME="debian13-server"
-SCRIPT_VERSION="1.2.5"
+SCRIPT_VERSION="1.3.0"
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
@@ -558,6 +559,101 @@ backup_file() {
   fi
 }
 
+# Écrit un fichier de configuration avec diff interactif si le fichier existe
+# Usage: write_config_safe "/chemin/fichier" <<'EOF'
+#        contenu...
+#        EOF
+# Retourne 0 si écrit, 1 si ignoré par l'utilisateur
+write_config_safe() {
+  local target="$1"
+  local new_content
+  new_content=$(cat)  # Lire depuis stdin
+
+  # Si le fichier n'existe pas, écrire directement
+  if [[ ! -f "$target" ]]; then
+    echo "$new_content" > "$target"
+    log "Créé : $target"
+    return 0
+  fi
+
+  # Comparer avec le fichier existant
+  local current_content
+  current_content=$(cat "$target")
+
+  if [[ "$current_content" == "$new_content" ]]; then
+    log "Inchangé : $target"
+    return 0
+  fi
+
+  # Fichier différent - afficher le diff coloré
+  local tmp_new
+  tmp_new=$(mktemp)
+  echo "$new_content" > "$tmp_new"
+
+  echo ""
+  echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${YELLOW}║${RESET} ${CYAN}Modification détectée :${RESET} ${WHITE}$target${RESET}"
+  echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════════╝${RESET}"
+  echo ""
+
+  # Diff coloré (rouge = supprimé, vert = ajouté)
+  echo -e "${WHITE}Différences (${RED}- ancien${RESET} ${GREEN}+ nouveau${RESET}) :${RESET}"
+  echo -e "${GRAY}────────────────────────────────────────────────────────────────────${RESET}"
+
+  # Utiliser diff avec couleurs ANSI manuelles pour compatibilité
+  diff -u "$target" "$tmp_new" 2>/dev/null | tail -n +3 | while IFS= read -r line; do
+    case "$line" in
+      +*) echo -e "${GREEN}${line}${RESET}" ;;
+      -*) echo -e "${RED}${line}${RESET}" ;;
+      @*) echo -e "${CYAN}${line}${RESET}" ;;
+      *)  echo "$line" ;;
+    esac
+  done | head -50  # Limiter à 50 lignes
+
+  local diff_lines
+  diff_lines=$(diff -u "$target" "$tmp_new" 2>/dev/null | wc -l)
+  if [[ "$diff_lines" -gt 53 ]]; then
+    echo -e "${GRAY}... ($(( diff_lines - 53 )) lignes supplémentaires)${RESET}"
+  fi
+
+  echo -e "${GRAY}────────────────────────────────────────────────────────────────────${RESET}"
+  echo ""
+
+  # Demander à l'utilisateur
+  local choice
+  while true; do
+    echo -e "${YELLOW}Que faire ?${RESET}"
+    echo -e "  ${GREEN}[E]${RESET}craser (backup auto)  ${CYAN}[G]${RESET}arder l'existant  ${WHITE}[D]${RESET}iff complet  ${RED}[Q]${RESET}uitter"
+    read -r -p "> " choice
+    case "${choice,,}" in
+      e|ecraser|écraser|o|oui|y|yes)
+        backup_file "$target"
+        echo "$new_content" > "$target"
+        log "Écrasé : $target (backup créé)"
+        rm -f "$tmp_new"
+        return 0
+        ;;
+      g|garder|k|keep|n|non|no)
+        log "Conservé : $target (modifications ignorées)"
+        rm -f "$tmp_new"
+        return 1
+        ;;
+      d|diff|v|voir)
+        echo ""
+        diff -u "$target" "$tmp_new" 2>/dev/null | less -R
+        echo ""
+        ;;
+      q|quit|quitter|x|exit)
+        rm -f "$tmp_new"
+        die "Installation annulée par l'utilisateur."
+        ;;
+      *)
+        echo -e "${RED}Choix invalide. Tapez E, G, D ou Q.${RESET}"
+        ;;
+    esac
+  done
+}
+
 # Exécute une commande en tant qu'utilisateur admin (pas root)
 run_as_user() {
   if [[ -z "${ADMIN_USER:-}" ]]; then
@@ -625,8 +721,7 @@ log "Hostname défini sur ${HOSTNAME_FQDN}"
 if $INSTALL_SSH_HARDEN; then
   section "SSH durci (clé uniquement) + port ${SSH_PORT}"
   apt-get install -y openssh-server | tee -a "$LOG_FILE"
-  backup_file /etc/ssh/sshd_config
-  cat >/etc/ssh/sshd_config <<EOF
+  write_config_safe /etc/ssh/sshd_config <<EOF
 Include /etc/ssh/sshd_config.d/*.conf
 Port ${SSH_PORT}
 Protocol 2
@@ -740,8 +835,6 @@ fi
 if $INSTALL_FAIL2BAN; then
   section "Fail2ban"
   apt-get install -y fail2ban | tee -a "$LOG_FILE"
-  backup_file /etc/fail2ban/jail.local
-
   # Construire la liste des IPs à ignorer
   FAIL2BAN_IGNOREIP="127.0.0.1/8 ::1"
   if [[ -n "${TRUSTED_IPS:-}" ]]; then
@@ -749,7 +842,7 @@ if $INSTALL_FAIL2BAN; then
     log "fail2ban: IPs de confiance ajoutées à ignoreip: $TRUSTED_IPS"
   fi
 
-  cat >/etc/fail2ban/jail.local <<EOF
+  write_config_safe /etc/fail2ban/jail.local <<EOF
 [DEFAULT]
 bantime  = 1h
 findtime = 10m
@@ -2062,7 +2155,7 @@ fi
 
 # ---------------------------------- 15) Sysctl/journald/updates -----------------------
 section "Durcissements kernel et journald + MAJ auto sécurité"
-cat >/etc/sysctl.d/99-hardening.conf <<'EOF'
+write_config_safe /etc/sysctl.d/99-hardening.conf <<'EOF'
 # Réseau & durcissements
 net.ipv4.conf.all.rp_filter=1
 net.ipv4.conf.default.rp_filter=1
@@ -2163,11 +2256,9 @@ log "Cron configuré : lundi à 7h00"
 # ---------------------------------- 16) .bashrc global -------------------------------
 if $INSTALL_BASHRC_GLOBAL; then
   section "Déploiement .bashrc (tous utilisateurs)"
-  install_bashrc_for() {
-    local target="$1"
-    [[ -d "$(dirname "$target")" ]] || return 0
-    backup_file "$target"
-    cat >"$target" <<'BASHRC'
+
+  # Stocker le contenu du bashrc dans une variable pour réutilisation avec write_config_safe
+  read -r -d '' BASHRC_CONTENT <<'BASHRC' || true
 # If not running interactively, don't do anything
 case $- in
     *i*) ;;
@@ -2537,6 +2628,12 @@ system_info() {
 }
 system_info 2>/dev/null || true
 BASHRC
+
+  # Fonction pour installer le bashrc avec diff interactif
+  install_bashrc_for() {
+    local target="$1"
+    [[ -d "$(dirname "$target")" ]] || return 0
+    echo "$BASHRC_CONTENT" | write_config_safe "$target"
   }
 
   # /etc/skel pour futurs utilisateurs
